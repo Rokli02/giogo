@@ -94,8 +94,8 @@ func (mf *MineField) Initialize() {
 			for colIndex := range *btnList {
 				btn := &(*btnList)[colIndex]
 
+				btn.onClick = mf.onButtonClick
 				btn.Pos = image.Point{colIndex, rowIndex}
-				btn.Parent = mf
 				btn.State = mf.State
 				btn.Size = mf.BtnSize
 				btn.Hidden = true
@@ -184,9 +184,6 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 	headerD := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 		layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
 			return layout.Dimensions{Size: gtx.Constraints.Max}
-			// return layout.UniformInset(4).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			// 	return layout.Dimensions{Size: gtx.Constraints.Max}
-			// })
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(4).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -195,6 +192,7 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 
 				paint.FillShape(gtx.Ops, styles.NIGHT_BLACK, clip.Stroke{Width: 2, Path: clip.Ellipse{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Path(gtx.Ops)}.Op())
 				defer clip.Ellipse{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+
 				switch mf.State {
 				case START:
 					fallthrough
@@ -289,7 +287,6 @@ func (mf *MineField) floodNeutralCells(startingPoint image.Point) {
 	countOfFloodedCells := uint16(0)
 
 	for iterator := 0; iterator < len(floodCells); iterator++ {
-		fmt.Printf("iterate: %d\n", iterator)
 		// Venni a jelenlegi elem rejtett környezetét és azokat hozzáadni egy listához
 		for i := -1; i <= 1; i++ {
 			rowIndex := floodCells[iterator].Pos.Y + i
@@ -446,4 +443,54 @@ func (mf *MineField) neighboringMines(rowIndexParam, colIndexParam int) int8 {
 	}
 
 	return sum
+}
+
+func (mf *MineField) onButtonClick(mb *MineButton) {
+	switch mf.State {
+	case START:
+		fmt.Println("--- Game Start ---")
+		mf.State = RUNNING
+
+		// Legenerálni a bombákat
+		mf.generateMines(mb.Pos)
+		mb.Hidden = false
+		mf.RevealedCells++
+
+		if mb.Value == 0 {
+			go mf.floodNeutralCells(mb.Pos)
+		}
+	case RUNNING:
+		if mb.Hidden && mb.clickType == pointer.ButtonSecondary {
+			mb.Marked = !mb.Marked
+
+			if mb.Marked {
+				mf.MarkedCells++
+			} else {
+				mf.MarkedCells--
+			}
+
+			break
+		}
+
+		mf.RevealedCells++
+
+		switch mb.Value {
+		case -1:
+			mf.State = LOSE
+
+			mf.revealFields()
+		case 0:
+			mb.Hidden = false
+
+			go mf.floodNeutralCells(mb.Pos)
+		default:
+			mb.Hidden = false
+		}
+	}
+
+	if mf.State == RUNNING && mf.RevealedCells == mf.countOfHorizontalCells*mf.countOfVerticalCells-mf.plantedMines {
+		mf.State = WIN
+		mf.MarkedCells = mf.plantedMines
+		fmt.Println("--- GG, WIN ---")
+	}
 }

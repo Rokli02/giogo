@@ -1,6 +1,7 @@
 package minesweeper
 
 import (
+	"giogo/assets"
 	"giogo/ui/styles"
 	"giogo/utils"
 	"image"
@@ -10,46 +11,41 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/unit"
 )
 
-func drawMarkedCell(gtx *layout.Context, inset unit.Dp) {
-	layout.UniformInset(inset).Layout(*gtx, func(gtx layout.Context) layout.Dimensions {
-		defer clip.Rect{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+func drawMarkedCell(gtx *layout.Context, size image.Point) {
+	drawHiddenCell(gtx, size)
 
-		paint.ColorOp{Color: styles.GREEN}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
+	tmpGtx := gtx.Constraints
+	gtx.Constraints.Max.X = gtx.Constraints.Max.X - (int(shadowThicknes) << 1)
+	gtx.Constraints.Max.Y = gtx.Constraints.Max.Y - (int(shadowThicknes) << 1)
 
-		return layout.Dimensions{Size: gtx.Constraints.Max}
-	})
+	defer op.Offset(image.Point{X: int(shadowThicknes), Y: int(shadowThicknes)}).Push(gtx.Ops).Pop()
+
+	markedField := assets.GetWidgetImage("marked", size.X)
+	markedField.Position = layout.Center
+	markedField.Layout(*gtx)
+
+	gtx.Constraints = tmpGtx
 }
 
-func drawMineCell(gtx *layout.Context, inset unit.Dp) {
-	layout.UniformInset(inset).Layout(*gtx, func(gtx layout.Context) layout.Dimensions {
-		defer clip.Rect{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-
-		paint.ColorOp{Color: styles.RED}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-
-		return layout.Dimensions{Size: gtx.Constraints.Max}
-	})
+func drawMineCell(gtx *layout.Context, size image.Point) {
+	mineField := assets.GetWidgetImage("bomb", size.X*2)
+	mineField.Position = layout.Center
+	mineField.Layout(*gtx)
 }
 
 // ??? mi ez a név ???
-func drawMissMarkedCell(gtx *layout.Context, inset unit.Dp) {
-	layout.UniformInset(inset).Layout(*gtx, func(gtx layout.Context) layout.Dimensions {
-		defer clip.Rect{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-
-		paint.ColorOp{Color: styles.GREEN}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-
-		drawBigRedX(&gtx, 2)
-
-		return layout.Dimensions{Size: gtx.Constraints.Max}
-	})
+func drawMissMarkedCell(gtx *layout.Context, size image.Point) {
+	drawMarkedCell(gtx, size)
+	drawBigRedX(gtx, 2)
 }
 
+var hiddenCellOps = new(op.Ops)
+
 func drawHiddenCell(gtx *layout.Context, size image.Point) {
+	macro := op.Record(hiddenCellOps)
+
 	shine := clip.Path{}
 	shine.Begin(gtx.Ops)
 	shine.MoveTo(f32.Pt(float32(0), float32(size.Y)))
@@ -73,6 +69,8 @@ func drawHiddenCell(gtx *layout.Context, size image.Point) {
 	shadow.Close()
 
 	paint.FillShape(gtx.Ops, shadowColor, clip.Outline{Path: shadow.End()}.Op())
+
+	macro.Stop().Add(gtx.Ops)
 }
 
 func drawBigRedX(gtx *layout.Context, weigth int) layout.Dimensions {

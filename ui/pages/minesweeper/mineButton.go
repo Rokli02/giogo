@@ -44,12 +44,6 @@ const (
 	LOADING
 )
 
-type MineAction struct {
-	Value int8
-	Pos   image.Point
-	Type  pointer.Buttons
-}
-
 type MineButton struct {
 	Size   image.Point
 	Value  int8
@@ -57,8 +51,8 @@ type MineButton struct {
 	State  MinesweeperState
 	Pos    image.Point
 	Marked bool
-	Parent *MineField
 
+	onClick   func(mb *MineButton)
 	pid       pointer.ID
 	clickType pointer.Buttons
 }
@@ -92,8 +86,8 @@ func (mb *MineButton) layout(gtx *layout.Context) {
 	paint.ColorOp{Color: baseColor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	if mb.Parent.State == WIN && mb.Value == -1 {
-		drawMarkedCell(gtx, unit.Dp(mb.Size.Y/8))
+	if mb.State == WIN && mb.Value == -1 {
+		drawMarkedCell(gtx, mb.Size)
 
 		return
 	}
@@ -104,7 +98,7 @@ func (mb *MineButton) layout(gtx *layout.Context) {
 		}
 
 		if mb.Marked {
-			drawMarkedCell(gtx, unit.Dp(mb.Size.Y/8))
+			drawMarkedCell(gtx, mb.Size)
 
 			return
 		}
@@ -117,27 +111,23 @@ func (mb *MineButton) layout(gtx *layout.Context) {
 		// Üres mező -> semmi
 		case 0:
 			if mb.Marked {
-				inset := unit.Dp(mb.Size.Y / 8)
-
-				drawMissMarkedCell(gtx, inset)
+				drawMissMarkedCell(gtx, mb.Size)
 
 				return
 			}
 		// Bomba
 		case -1:
-			inset := unit.Dp(mb.Size.Y / 8)
-
 			if mb.Marked {
-				drawMarkedCell(gtx, inset)
+				drawMarkedCell(gtx, mb.Size)
 
 				return
 			}
 
-			drawMineCell(gtx, inset)
+			drawMineCell(gtx, mb.Size)
 		// Számos mező
 		default:
 			if mb.Marked {
-				drawMissMarkedCell(gtx, unit.Dp(mb.Size.Y/8))
+				drawMissMarkedCell(gtx, mb.Size)
 
 				return
 			}
@@ -187,53 +177,7 @@ func (mb *MineButton) releaseEvent(event *pointer.Event, ops *op.Ops) {
 		return
 	}
 
-	switch mb.Parent.State {
-	case START:
-		fmt.Println("--- Game Start ---")
-		mb.Parent.State = RUNNING
-
-		// Legenerálni a bombákat
-		mb.Parent.generateMines(mb.Pos)
-		mb.Hidden = false
-		mb.Parent.RevealedCells++
-
-		if mb.Value == 0 {
-			go mb.Parent.floodNeutralCells(mb.Pos)
-		}
-	case RUNNING:
-		if mb.Hidden && mb.clickType == pointer.ButtonSecondary {
-			mb.Marked = !mb.Marked
-
-			if mb.Marked {
-				mb.Parent.MarkedCells++
-			} else {
-				mb.Parent.MarkedCells--
-			}
-
-			break
-		}
-
-		mb.Parent.RevealedCells++
-
-		switch mb.Value {
-		case -1:
-			mb.Parent.State = LOSE
-
-			mb.Parent.revealFields()
-		case 0:
-			mb.Hidden = false
-
-			go mb.Parent.floodNeutralCells(mb.Pos)
-		default:
-			mb.Hidden = false
-		}
-	}
-
-	if mb.Parent.State == RUNNING && mb.Parent.RevealedCells == mb.Parent.countOfHorizontalCells*mb.Parent.countOfVerticalCells-mb.Parent.plantedMines {
-		mb.Parent.State = WIN
-		mb.Parent.MarkedCells = mb.Parent.plantedMines
-		fmt.Println("--- GG, WIN ---")
-	}
+	mb.onClick(mb)
 
 	op.InvalidateOp{}.Add(ops)
 	mb.pid = 0

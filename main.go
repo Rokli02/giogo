@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"giogo/assets"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
 	"image"
@@ -17,6 +19,8 @@ import (
 
 func main() {
 	go func() {
+		fmt.Println("App Starting")
+
 		w := app.NewWindow(func(_ unit.Metric, c *app.Config) {
 			c.Title = "Freestyle"
 		})
@@ -34,6 +38,7 @@ func run(w *app.Window) error {
 	styles.MaterialTheme = material.NewTheme()
 	var ops op.Ops
 	var gtx layout.Context
+	assets.InitializeAssets()
 	router := routerModule.NewRouter(w)
 
 	currentPage := router.CurrentPage()
