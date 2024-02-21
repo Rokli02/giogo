@@ -56,6 +56,7 @@ func (sp *ScrollPage) Initialize() {
 		c.Title = "Görgető"
 		c.MinSize = image.Pt(int(sp.Width)+16, 200)
 		c.MaxSize = image.Point{}
+		c.Decorated = true
 
 		if sp.size != (image.Point{}) {
 			c.Size = sp.size

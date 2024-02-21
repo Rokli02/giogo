@@ -3,106 +3,76 @@ package router
 import (
 	"errors"
 	"fmt"
-	"giogo/ui"
-	"giogo/ui/pages/minesweeper"
-	"giogo/ui/pages/scroller"
 
 	"gioui.org/app"
-	"gioui.org/io/key"
-	"gioui.org/layout"
 )
 
-type Router struct {
-	currentRoute Route
-	currentPage  ui.ApplicationCycles
-	routes       []ui.ApplicationCycles
+type Router[Route interface{}, Key int | string] struct {
+	w            *app.Window
+	routes       map[Key]Route
+	currentRoute *Route
+	currentKey   Key
 }
 
-func NewRouter(w *app.Window) (r *Router) {
-	r = &Router{
-		currentRoute: Minesweeper,
-		routes:       make([]ui.ApplicationCycles, 0, 2),
+func NewRouter[Route interface{}, Key int | string](w *app.Window) (r *Router[Route, Key]) {
+	r = &Router[Route, Key]{
+		w:            w,
+		routes:       make(map[Key]Route),
+		currentRoute: nil,
 	}
 
-	r.appendRoutes(w)
-
-	r.currentPage = r.routes[r.currentRoute]
-
-	return r
+	return
 }
 
-type Route int
-
-const (
-	Minesweeper Route = iota
-	Scroller
-	CountOfRoutes
-)
-
-func (r *Router) appendRoutes(w *app.Window) {
-	r.routes = append(r.routes, minesweeper.NewMinefield(w, 15, 20, 48))
-	r.routes = append(r.routes, scroller.NewScrollPage(w, 175))
+func (r *Router[Route, Key]) Reset() {
+	clear(r.routes)
 }
 
-func (r *Router) SelectPage(route Route) error {
-	if int(route) >= len(r.routes) || route < 0 {
-		return errors.New("no route found")
+func (r *Router[Route, Key]) Add(key Key, route Route) {
+	_, hasItem := r.routes[key]
+	if !hasItem {
+		r.routes[key] = route
+
+		return
 	}
 
-	page := r.routes[route]
-	r.currentRoute = route
-	r.currentPage = page
-
-	return nil
+	fmt.Printf("Route '%v' has already been added!", key)
 }
 
-func (r *Router) CurrentPage() ui.ApplicationCycles {
-	return r.currentPage
-}
+func (r *Router[Route, Key]) Select(key Key) (e error) {
+	currentRoute, hasItem := r.routes[key]
 
-func (r *Router) GetPage(route Route) (ui.ApplicationCycles, error) {
-	if int(route) >= len(r.routes) || route < 0 {
-		return nil, errors.New("no route found")
+	if !hasItem {
+		e = errors.New("no route found")
+
+		return
 	}
 
-	return r.routes[route], nil
+	r.currentRoute = &currentRoute
+	r.currentKey = key
+
+	return
 }
 
-func (r *Router) CurrentRoute() Route {
-	return r.currentRoute
+func (r *Router[Route, Key]) GoTo(key Key) (e error) {
+	e = r.Select(key)
+	r.Rerender()
+
+	return
 }
 
-func (r *Router) HandleRouteEvents(gtx *layout.Context) bool {
-	// currentRoute, nextRoute := r.currentRoute, r.currentRoute
-	isChanged := false
+func (r *Router[Route, Key]) Remove(key Key) {
+	delete(r.routes, key)
+}
 
-	for _, evt := range gtx.Events(0) {
-		switch event := evt.(type) {
-		case key.Event:
-			previousRoute := r.currentRoute
-			// currentRoute = r.currentRoute
+func (r *Router[Route, Key]) CurrentKey() Key {
+	return r.currentKey
+}
 
-			switch event.Name {
-			case "0":
-				r.SelectPage(Minesweeper)
-			case "1":
-				r.SelectPage(Scroller)
-			default:
-				fmt.Println("Invalid Page selection!", event.Modifiers, event.Name)
-			}
+func (r *Router[Route, Key]) CurrentRoute() Route {
+	return *r.currentRoute
+}
 
-			if previousRoute != r.currentRoute {
-				isChanged = true
-			}
-			// nextRoute = r.currentRoute
-		}
-	}
-
-	key.InputOp{
-		Keys: key.Set("0|1"),
-		Tag:  0,
-	}.Add(gtx.Ops)
-
-	return isChanged
-	// return currentRoute != nextRoute
+func (r *Router[Route, Key]) Rerender() {
+	r.w.Invalidate()
 }

@@ -2,6 +2,8 @@ package minesweeper
 
 import (
 	"fmt"
+	"giogo/ui"
+	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
 	"giogo/utils"
 	"image"
@@ -18,7 +20,9 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"golang.org/x/exp/shiny/materialdesign/icons"
 )
 
 const (
@@ -33,28 +37,32 @@ type MineField struct {
 	RevealedCells uint16
 	MarkedCells   uint16
 
+	w                      *app.Window
+	router                 *routerModule.Router[ui.ApplicationCycles, string]
 	animationDuration      time.Duration
 	plantedMines           uint16
-	w                      *app.Window
 	countOfHorizontalCells uint16
 	countOfVerticalCells   uint16
+	returnHomeClickable    widget.Clickable
 }
 
 /*
  * Constructor
  */
 
-func NewMinefield(w *app.Window, horizontalCells, verticalCells, numberOfMines uint16) *MineField {
+func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], horizontalCells, verticalCells, numberOfMines uint16) *MineField {
 	mineField := &MineField{
 		State:         UNDEFINED,
 		BtnSize:       image.Pt(32, 32),
 		MaxNumOfMines: numberOfMines,
 
+		w:                      w,
+		router:                 router,
 		animationDuration:      time.Millisecond * 40,
 		plantedMines:           numberOfMines,
-		w:                      w,
 		countOfHorizontalCells: horizontalCells,
 		countOfVerticalCells:   verticalCells,
+		returnHomeClickable:    widget.Clickable{},
 	}
 
 	mineField.Initialize()
@@ -73,6 +81,7 @@ func (mf *MineField) Initialize() {
 		c.MinSize = sizeOfMinesweeper
 		c.MaxSize = sizeOfMinesweeper
 		c.Size = sizeOfMinesweeper
+		c.Decorated = true
 	})
 
 	shouldInitMatrix := len(mf.BtnMatrix) == 0 || len(mf.BtnMatrix) != int(mf.countOfVerticalCells)
@@ -183,6 +192,30 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 
 	headerD := layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
 		layout.Flexed(3, func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Point{gtx.Constraints.Max.Y - 4, gtx.Constraints.Max.Y - 4}
+			icon, _ := widget.NewIcon(icons.ActionHome)
+			iconColor := styles.BLOOD_ORANGE
+
+			if mf.returnHomeClickable.Clicked(gtx) {
+				mf.router.GoTo(routerModule.MenuPage)
+			}
+
+			if mf.returnHomeClickable.Pressed() {
+				iconColor.R -= 10
+				iconColor.G -= 10
+				iconColor.B -= 10
+			} else if mf.returnHomeClickable.Hovered() {
+				iconColor.R += 20
+				iconColor.G += 20
+				iconColor.B += 20
+			}
+
+			mf.returnHomeClickable.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				pointer.Cursor.Add(pointer.CursorPointer, gtx.Ops)
+
+				return icon.Layout(gtx, iconColor)
+			})
+
 			return layout.Dimensions{Size: gtx.Constraints.Max}
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
