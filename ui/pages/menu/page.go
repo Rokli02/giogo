@@ -43,7 +43,8 @@ func (m *Menu) Initialize() {
 
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.MaxSize = image.Point{}
-		c.MinSize = image.Point{}
+		c.MinSize = image.Point{80, 140}
+		c.Size = image.Point{600, 400}
 		c.Title = "Menü"
 		c.Decorated = true
 

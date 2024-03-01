@@ -44,20 +44,41 @@ const (
 	LOADING
 )
 
+func (s MinesweeperState) toString() string {
+	switch s {
+	case UNDEFINED:
+		return "UNDEFINED"
+	case START:
+		return "START"
+	case RUNNING:
+		return "RUNNING"
+	case LOSE:
+		return "LOSE"
+	case WIN:
+		return "WIN"
+	case END:
+		return "END"
+	case LOADING:
+		return "LOADING"
+	}
+
+	return "UNKNOWN"
+}
+
 type MineButton struct {
-	Size   image.Point
+	Size image.Point
+	Pos  image.Point
+
 	Value  int8
 	Hidden bool
-	State  MinesweeperState
-	Pos    image.Point
 	Marked bool
 
-	onClick   func(mb *MineButton)
+	onClick   func(Pos image.Point, clickType pointer.Buttons)
 	pid       pointer.ID
 	clickType pointer.Buttons
 }
 
-func (mb *MineButton) Layout(gtx layout.Context) layout.Dimensions {
+func (mb *MineButton) Layout(gtx layout.Context, state MinesweeperState) layout.Dimensions {
 	for _, event := range gtx.Events(mb) {
 		switch event := event.(type) {
 		case pointer.Event:
@@ -72,28 +93,28 @@ func (mb *MineButton) Layout(gtx layout.Context) layout.Dimensions {
 
 	gtx.Constraints.Max = mb.Size
 
-	mb.layout(&gtx)
+	mb.layout(&gtx, state)
 
 	return layout.Dimensions{
 		Size: gtx.Constraints.Max,
 	}
 }
 
-func (mb *MineButton) layout(gtx *layout.Context) {
+func (mb *MineButton) layout(gtx *layout.Context, state MinesweeperState) {
 	defer op.TransformOp{}.Push(gtx.Ops).Pop()
 	defer clip.Rect{Max: mb.Size}.Push(gtx.Ops).Pop()
 
 	paint.ColorOp{Color: baseColor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	if mb.State == WIN && mb.Value == -1 {
+	if state == WIN && mb.Value == -1 {
 		drawMarkedCell(gtx, mb.Size)
 
 		return
 	}
 
 	if mb.Hidden {
-		if mb.State == START || mb.State == RUNNING {
+		if state == START || state == RUNNING {
 			mb.registerEvents(gtx.Ops)
 		}
 
@@ -177,7 +198,7 @@ func (mb *MineButton) releaseEvent(event *pointer.Event, ops *op.Ops) {
 		return
 	}
 
-	mb.onClick(mb)
+	mb.onClick(mb.Pos, mb.clickType)
 
 	op.InvalidateOp{}.Add(ops)
 	mb.pid = 0

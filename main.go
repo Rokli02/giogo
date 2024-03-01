@@ -81,7 +81,7 @@ func run(w *app.Window) error {
 
 func addRoutes(router *routerModule.Router[ui.ApplicationCycles, string], w *app.Window) {
 	router.Add(routerModule.MenuPage, menu.NewMenu(w, router))
-	router.Add(routerModule.MinesweeperPage, minesweeper.NewMinefield(w, router, 14, 26, 48))
+	router.Add(routerModule.MinesweeperPage, minesweeper.NewMinefield(w, router, 8, 12, 12))
 	router.Add(routerModule.ScrollerPage, scroller.NewScrollPage(w, 181))
 }
 
