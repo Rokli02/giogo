@@ -44,7 +44,7 @@ const (
 	LOADING
 )
 
-func (s MinesweeperState) toString() string {
+func (s MinesweeperState) ToString() string {
 	switch s {
 	case UNDEFINED:
 		return "UNDEFINED"
