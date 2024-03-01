@@ -91,7 +91,16 @@ func (mf *MineField) Initialize() {
 	}
 
 	go func() {
-		for message := range mf.mineChannel {
+		for {
+			message, isOpen := <-mf.mineChannel
+			if !isOpen {
+				close(mf.acks)
+				mf.acks = nil
+				mf.engine.acks = nil
+
+				return
+			}
+
 			btn := &mf.BtnMatrix[message.Pos.Y][message.Pos.X]
 
 			btn.Value = message.Value
@@ -122,7 +131,8 @@ func (mf *MineField) Restart() {
 
 func (mf *MineField) Close() {
 	close(mf.mineChannel)
-	close(mf.acks)
+	mf.mineChannel = nil
+	mf.engine.mineChannel = nil
 }
 
 func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
@@ -183,7 +193,7 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 			iconColor := styles.BLOOD_ORANGE
 
 			if mf.returnHomeClickable.Clicked(gtx) {
-				mf.router.GoTo(routerModule.MenuPage)
+				mf.router.GoTo(routerModule.MinesweeperMenuPage)
 			}
 
 			if mf.returnHomeClickable.Pressed() {

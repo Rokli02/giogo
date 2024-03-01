@@ -13,7 +13,7 @@ import (
 	"golang.org/x/image/draw"
 )
 
-const useEmbededAssets = false
+const useEmbededAssets = true
 
 var (
 	MarkedFieldImg widget.Image

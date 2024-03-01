@@ -266,6 +266,10 @@ func (me *MinesweeperEngine) floodNeutralCells(startingPoint image.Point) {
 				}
 
 				// Lassú animáció
+				if me.mineChannel == nil {
+					return
+				}
+
 				me.mineChannel <- element
 				time.Sleep(me.animationDuration)
 				<-me.acks

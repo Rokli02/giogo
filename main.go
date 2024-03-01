@@ -81,6 +81,8 @@ func run(w *app.Window) error {
 
 func addRoutes(router *routerModule.Router[ui.ApplicationCycles, string], w *app.Window) {
 	router.Add(routerModule.MenuPage, menu.NewMenu(w, router))
+	router.Add(routerModule.MinesweeperMenuPage, menu.NewMinesweeperMenu(w, router))
+	router.Add(routerModule.MinesweeperMultiplayerMenuPage, menu.NewMinesweeperMultiplayerMenu(w, router))
 	router.Add(routerModule.MinesweeperPage, minesweeper.NewMinefield(w, router, 8, 12, 12))
 	router.Add(routerModule.ScrollerPage, scroller.NewScrollPage(w, 181))
 }
@@ -97,6 +99,4 @@ func handleRouting(gtx *layout.Context, router *routerModule.Router[ui.Applicati
 		Keys: key.Set("0|1|2"),
 		Tag:  0,
 	}.Add(gtx.Ops)
-
-	return
 }
