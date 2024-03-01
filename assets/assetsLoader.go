@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"image"
+	"os"
 	"strings"
 
 	"gioui.org/op/paint"
@@ -12,12 +13,14 @@ import (
 	"golang.org/x/image/draw"
 )
 
+const useEmbededAssets = false
+
 var (
 	MarkedFieldImg widget.Image
 )
 
 //go:embed imgs
-var embededImgsDir embed.FS
+var embededAssetsImgsDir embed.FS
 
 var Images map[string]image.Image
 var customWidgetCache map[string]widget.Image
@@ -33,12 +36,22 @@ func InitializeAssets() {
 		customWidgetCache = make(map[string]widget.Image)
 	}
 
-	imgsDir, err := embededImgsDir.ReadDir("imgs")
+	if useEmbededAssets {
+		initializeEmbededImgs()
+	} else {
+		initializeLoadedImgs()
+	}
+
+	initializeWidgetImages()
+}
+
+func initializeEmbededImgs() {
+	assetsImgsDir, err := embededAssetsImgsDir.ReadDir("imgs")
 	if err != nil {
 		panic(err)
 	}
 
-	for _, entry := range imgsDir {
+	for _, entry := range assetsImgsDir {
 		if entry.IsDir() {
 			continue
 		}
@@ -48,7 +61,7 @@ func InitializeAssets() {
 
 		_, hasItem := Images[key]
 		if !hasItem {
-			file, _ := embededImgsDir.ReadFile(fmt.Sprintf("imgs/%s", entry.Name()))
+			file, _ := embededAssetsImgsDir.ReadFile(fmt.Sprintf("imgs/%s", entry.Name()))
 			image, _, err := image.Decode(bytes.NewBuffer(file))
 
 			if err != nil {
@@ -59,11 +72,43 @@ func InitializeAssets() {
 			Images[key] = image
 		}
 	}
-
-	initializeImages()
 }
 
-func initializeImages() {
+func initializeLoadedImgs() {
+	assetsImgsDir, err := os.Open("./assets/imgs")
+	if err != nil {
+		panic(err)
+	}
+
+	fileInfo, err := assetsImgsDir.Readdir(0)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, entry := range fileInfo {
+		if entry.IsDir() {
+			continue
+		}
+
+		indexOfDot := strings.LastIndex(entry.Name(), ".")
+		key := entry.Name()[:indexOfDot]
+
+		_, hasItem := Images[key]
+		if !hasItem {
+			file, _ := os.ReadFile(fmt.Sprintf("./assets/imgs/%s", entry.Name()))
+			image, _, err := image.Decode(bytes.NewBuffer(file))
+
+			if err != nil {
+				fmt.Printf("Couldn't decode image (%s), due to this error: %s\n", entry.Name(), err.Error())
+				continue
+			}
+
+			Images[key] = image
+		}
+	}
+}
+
+func initializeWidgetImages() {
 	MarkedFieldImg = widget.Image{Src: paint.NewImageOp(Images["marked"]), Fit: widget.Cover}
 }
 
