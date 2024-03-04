@@ -1,6 +1,7 @@
 package styles
 
 import (
+	"image"
 	"image/color"
 
 	"gioui.org/widget/material"
@@ -23,4 +24,8 @@ var (
 var (
 	HEADER_BACKGROUND = color.NRGBA{A: 0xFF, R: 0xa3, G: 0xa3, B: 0xa3}
 	TEXT_SHADOW       = color.NRGBA{A: 0x9A}
+)
+
+var (
+	MenuWindowSizes = image.Point{360, 500}
 )

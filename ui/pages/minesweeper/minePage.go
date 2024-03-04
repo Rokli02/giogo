@@ -3,6 +3,7 @@ package minesweeper
 import (
 	"fmt"
 	"giogo/ui"
+	"giogo/ui/pages/minesweeper/engine"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
 	"giogo/utils"
@@ -32,27 +33,26 @@ type MineField struct {
 	BtnSize   image.Point
 	BtnMatrix [][]MineButton
 
-	engine              *MinesweeperEngine
+	engine              engine.MinesweeperEngine
 	w                   *app.Window
 	router              *routerModule.Router[ui.ApplicationCycles, string]
-	mineChannel         chan *MineElement
+	mineChannel         chan engine.MineElement
 	acks                chan uint8
 	returnHomeClickable widget.Clickable
+	refreshRate         time.Duration
+	rerenderEveryFrame  bool
 }
 
-func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], horizontalCells, verticalCells, numberOfMines uint16) *MineField {
+func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], animationDuration time.Duration) *MineField {
 	mineField := &MineField{
 		BtnSize: image.Pt(32, 32),
 
-		engine:              NewMinesweeperEngine(),
+		engine:              nil,
 		w:                   w,
 		router:              router,
+		refreshRate:         animationDuration >> 1,
 		returnHomeClickable: widget.Clickable{},
 	}
-
-	mineField.engine.Resize(horizontalCells, verticalCells, numberOfMines)
-
-	mineField.Initialize()
 
 	return mineField
 }
@@ -61,8 +61,21 @@ func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycle
  * Public methods
  */
 
+func (mf *MineField) SetEngine(minesweeperEngine engine.MinesweeperEngine) *MineField {
+	mf.engine = minesweeperEngine.SetAnimationDuration(mf.refreshRate << 1)
+	if _, ok := minesweeperEngine.(*engine.MinesweeperLocalEngine); !ok {
+		mf.rerenderEveryFrame = true
+	}
+
+	return mf
+}
+
 func (mf *MineField) Initialize() {
-	sizeOfMinesweeper := image.Pt(mf.BtnSize.X*int(mf.engine.Width), mf.BtnSize.Y*int(mf.engine.Height)+heightOfHeader)
+	if mf.engine == nil {
+		panic("Engine is not set for Minesweeper")
+	}
+
+	sizeOfMinesweeper := image.Pt(mf.BtnSize.X*mf.engine.GetWidth(), mf.BtnSize.Y*mf.engine.GetHeight()+heightOfHeader)
 	mf.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.Title = "Minesweeper COPY"
 		c.MinSize = sizeOfMinesweeper
@@ -71,15 +84,14 @@ func (mf *MineField) Initialize() {
 		c.Decorated = true
 	})
 
-	mf.BtnMatrix = make([][]MineButton, mf.engine.Height)
-	mf.mineChannel = make(chan *MineElement, 4)
+	mf.BtnMatrix = make([][]MineButton, mf.engine.GetHeight())
+	mf.mineChannel = make(chan engine.MineElement, 4)
 	mf.acks = make(chan uint8)
 
-	mf.engine.mineChannel = mf.mineChannel
-	mf.engine.acks = mf.acks
+	mf.engine.SetChannels(mf.mineChannel, mf.acks)
 
 	for rowIndex := range mf.BtnMatrix {
-		mf.BtnMatrix[rowIndex] = make([]MineButton, mf.engine.Width)
+		mf.BtnMatrix[rowIndex] = make([]MineButton, mf.engine.GetWidth())
 
 		for colIndex := range mf.BtnMatrix[rowIndex] {
 			btn := &mf.BtnMatrix[rowIndex][colIndex]
@@ -95,8 +107,8 @@ func (mf *MineField) Initialize() {
 			message, isOpen := <-mf.mineChannel
 			if !isOpen {
 				close(mf.acks)
+				mf.engine.Close()
 				mf.acks = nil
-				mf.engine.acks = nil
 
 				return
 			}
@@ -115,24 +127,23 @@ func (mf *MineField) Initialize() {
 }
 
 func (mf *MineField) Restart() {
-	mf.engine.Resize(mf.engine.Width, mf.engine.Height, mf.engine.MaxMines)
+	mf.engine.Restart()
 
-	for rowIndex := range mf.engine.matrix {
-		for colIndex := range mf.engine.matrix[rowIndex] {
-			element := mf.engine.matrix[rowIndex][colIndex]
+	for rowIndex := range mf.BtnMatrix {
+		for colIndex := range mf.BtnMatrix[rowIndex] {
 			btn := &mf.BtnMatrix[rowIndex][colIndex]
 
-			btn.Value = element.Value
-			btn.Hidden = element.IsHidden()
-			btn.Marked = element.IsMarked()
+			btn.Value = 0
+			btn.Hidden = true
+			btn.Marked = false
 		}
 	}
 }
 
 func (mf *MineField) Close() {
 	close(mf.mineChannel)
+	mf.engine.Close()
 	mf.mineChannel = nil
-	mf.engine.mineChannel = nil
 }
 
 func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
@@ -155,9 +166,13 @@ func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
 
 	defer utils.SetBackgroundColor(&gtx, styles.BACKGROUND_COLOR).Pop()
 
-	if mf.engine.State == LOADING {
-		op.InvalidateOp{At: time.Now().Add(mf.engine.animationDuration >> 1)}.Add(gtx.Ops)
+	if mf.engine.GetState() == engine.LOADING {
+		op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
 	} else {
+		if mf.rerenderEveryFrame {
+			op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
+		}
+
 		key.InputOp{
 			Tag:  mf,
 			Keys: key.Set("Ctrl-R"),
@@ -170,7 +185,7 @@ func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
 			layout.Rigid(mf.bodyComponent),
 		)
 
-		flexD.Size.X = mf.BtnSize.X * int(mf.engine.Width)
+		flexD.Size.X = mf.BtnSize.X * mf.engine.GetWidth()
 
 		return flexD
 	})
@@ -182,7 +197,7 @@ func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
 
 func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 	gtx.Constraints.Min = image.Pt(0, 0)
-	gtx.Constraints.Max = image.Pt(int(mf.engine.Width)*mf.BtnSize.X, heightOfHeader)
+	gtx.Constraints.Max = image.Pt(mf.engine.GetWidth()*mf.BtnSize.X, heightOfHeader)
 
 	defer utils.SetBackgroundColor(&gtx, styles.HEADER_BACKGROUND).Pop()
 
@@ -222,26 +237,26 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 				paint.FillShape(gtx.Ops, styles.NIGHT_BLACK, clip.Stroke{Width: 2, Path: clip.Ellipse{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Path(gtx.Ops)}.Op())
 				defer clip.Ellipse{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 
-				switch mf.engine.State {
-				case START:
+				switch mf.engine.GetState() {
+				case engine.START:
 					fallthrough
-				case END:
+				case engine.END:
 					fallthrough
-				case LOADING:
+				case engine.LOADING:
 					fallthrough
-				case RUNNING:
+				case engine.RUNNING:
 					// Sárga neutrális
 					paint.ColorOp{Color: styles.YELLOW}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
 
 					drawNeutralFace(&gtx)
-				case WIN:
+				case engine.WIN:
 					// Zöld mosolygó
 					paint.ColorOp{Color: styles.GREEN}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
 
 					drawHappyFace(&gtx)
-				case LOSE:
+				case engine.LOSE:
 					// Piros mérges/szomorú
 					paint.ColorOp{Color: styles.RED}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
@@ -272,7 +287,7 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 				defer utils.SetBackgroundColor(&gtx, clr).Pop()
 
 				macro := op.Record(gtx.Ops)
-				label := material.Label(styles.MaterialTheme, unit.Sp(16), fmt.Sprintf("%v/%v", mf.engine.Marked, mf.engine.mines))
+				label := material.Label(styles.MaterialTheme, unit.Sp(16), fmt.Sprintf("%v/%v", mf.engine.GetMarked(), mf.engine.GetMines()))
 				label.MaxLines = 1
 				label.Font.Weight = font.Medium
 				label.Alignment = text.Middle
@@ -301,7 +316,7 @@ func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
 		list := &layout.List{Axis: layout.Horizontal, Alignment: layout.Start}
 
 		return list.Layout(gtx, len(mf.BtnMatrix[rowIndex]), func(gtx layout.Context, colIndex int) layout.Dimensions {
-			btnDimension := mf.BtnMatrix[rowIndex][colIndex].Layout(gtx, mf.engine.State)
+			btnDimension := mf.BtnMatrix[rowIndex][colIndex].Layout(gtx, mf.engine.GetState())
 
 			return btnDimension
 		})
@@ -309,25 +324,20 @@ func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
 }
 
 func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {
-	state, element := mf.engine.OnButtonClick(pos, clickType)
+	state := mf.engine.OnButtonClick(pos, clickType)
 
 	switch state {
-	case RUNNING:
-		mf.mineChannel <- element
-		<-mf.acks
-	case LOSE:
+	case engine.LOSE:
 		fallthrough
-	case WIN:
-		for rowIndex := range mf.engine.matrix {
-			for colIndex := range mf.engine.matrix[rowIndex] {
-				btn := &mf.BtnMatrix[rowIndex][colIndex]
-				element := mf.engine.matrix[rowIndex][colIndex]
-				element.PropOff(hiddenBits)
+	case engine.WIN:
+		remainingMines := *mf.engine.GetRemainingMines()
 
-				btn.Value = element.Value
-				btn.Hidden = element.IsHidden()
-				btn.Marked = element.IsMarked()
-			}
+		for _, mine := range remainingMines {
+			btn := &mf.BtnMatrix[mine.Pos.Y][mine.Pos.X]
+
+			btn.Value = mine.Value
+			btn.Hidden = mine.IsHidden()
+			btn.Marked = mine.IsMarked()
 		}
 	}
 }

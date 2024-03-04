@@ -2,6 +2,7 @@ package minesweeper
 
 import (
 	"fmt"
+	"giogo/ui/pages/minesweeper/engine"
 	"giogo/ui/styles"
 	"image"
 	"image/color"
@@ -32,39 +33,6 @@ const (
 	shadowThicknes = float32(4)
 )
 
-type MinesweeperState uint8
-
-const (
-	UNDEFINED MinesweeperState = iota
-	START
-	RUNNING
-	LOSE
-	WIN
-	END
-	LOADING
-)
-
-func (s MinesweeperState) ToString() string {
-	switch s {
-	case UNDEFINED:
-		return "UNDEFINED"
-	case START:
-		return "START"
-	case RUNNING:
-		return "RUNNING"
-	case LOSE:
-		return "LOSE"
-	case WIN:
-		return "WIN"
-	case END:
-		return "END"
-	case LOADING:
-		return "LOADING"
-	}
-
-	return "UNKNOWN"
-}
-
 type MineButton struct {
 	Size image.Point
 	Pos  image.Point
@@ -78,7 +46,7 @@ type MineButton struct {
 	clickType pointer.Buttons
 }
 
-func (mb *MineButton) Layout(gtx layout.Context, state MinesweeperState) layout.Dimensions {
+func (mb *MineButton) Layout(gtx layout.Context, state engine.MinesweeperState) layout.Dimensions {
 	for _, event := range gtx.Events(mb) {
 		switch event := event.(type) {
 		case pointer.Event:
@@ -100,21 +68,21 @@ func (mb *MineButton) Layout(gtx layout.Context, state MinesweeperState) layout.
 	}
 }
 
-func (mb *MineButton) layout(gtx *layout.Context, state MinesweeperState) {
+func (mb *MineButton) layout(gtx *layout.Context, state engine.MinesweeperState) {
 	defer op.TransformOp{}.Push(gtx.Ops).Pop()
 	defer clip.Rect{Max: mb.Size}.Push(gtx.Ops).Pop()
 
 	paint.ColorOp{Color: baseColor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	if state == WIN && mb.Value == -1 {
+	if state == engine.WIN && mb.Value == -1 {
 		drawMarkedCell(gtx, mb.Size)
 
 		return
 	}
 
 	if mb.Hidden {
-		if state == START || state == RUNNING {
+		if state == engine.START || state == engine.RUNNING {
 			mb.registerEvents(gtx.Ops)
 		}
 

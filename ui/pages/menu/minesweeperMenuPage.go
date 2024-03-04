@@ -17,7 +17,6 @@ import (
 type MinesweeperMenu struct {
 	w         *app.Window
 	router    *routerModule.Router[ui.ApplicationCycles, string]
-	size      image.Point
 	container *component.CentralizedContainer
 
 	singlePlayerClickable widget.Clickable
@@ -41,19 +40,15 @@ func (m *MinesweeperMenu) Initialize() {
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.MaxSize = image.Point{}
 		c.MinSize = image.Point{280, 200}
-		c.Size = image.Point{600, 400}
+		c.Size = styles.MenuWindowSizes
 		c.Title = "Aknakereső Menü"
 		c.Decorated = true
-
-		if m.size != (image.Point{}) {
-			c.Size = m.size
-		}
 	})
 }
 
 func (m *MinesweeperMenu) Close() {
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
-		m.size = c.Size
+		styles.MenuWindowSizes = c.Size
 	})
 }
 

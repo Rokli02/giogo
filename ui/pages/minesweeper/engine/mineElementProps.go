@@ -1,12 +1,12 @@
-package minesweeper
+package engine
 
 import "image"
 
 type MineElementProps uint8
 
 const (
-	hiddenBits MineElementProps = 0b1
-	markedBits MineElementProps = 0b10
+	HiddenBits MineElementProps = 0b1
+	MarkedBits MineElementProps = 0b10
 )
 
 type MineElement struct {
@@ -15,16 +15,16 @@ type MineElement struct {
 	Value int8
 }
 
-func (m *MineElement) isActive(prop MineElementProps) bool {
+func (m *MineElement) isPropActive(prop MineElementProps) bool {
 	return m.Props&prop != 0
 }
 
 func (m *MineElement) IsMarked() bool {
-	return m.isActive(markedBits)
+	return m.isPropActive(MarkedBits)
 }
 
 func (m *MineElement) IsHidden() bool {
-	return m.isActive(hiddenBits)
+	return m.isPropActive(HiddenBits)
 }
 
 func (m *MineElement) ToggleProp(prop MineElementProps) {
@@ -32,13 +32,13 @@ func (m *MineElement) ToggleProp(prop MineElementProps) {
 }
 
 func (m *MineElement) PropOn(prop MineElementProps) {
-	if !m.isActive(prop) {
+	if !m.isPropActive(prop) {
 		m.ToggleProp(prop)
 	}
 }
 
 func (m *MineElement) PropOff(prop MineElementProps) {
-	if m.isActive(prop) {
+	if m.isPropActive(prop) {
 		m.ToggleProp(prop)
 	}
 }

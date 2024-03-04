@@ -9,6 +9,7 @@ import (
 	"image"
 
 	"gioui.org/app"
+	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -18,10 +19,10 @@ import (
 type Menu struct {
 	w                   *app.Window
 	router              *routerModule.Router[ui.ApplicationCycles, string]
-	size                image.Point
 	container           *component.CentralizedContainer
 	minesweeperClicable widget.Clickable
 	scrollerClicable    widget.Clickable
+	exitClicable        widget.Clickable
 }
 
 var _ ui.ApplicationCycles = (*Menu)(nil)
@@ -42,19 +43,15 @@ func (m *Menu) Initialize() {
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.MaxSize = image.Point{}
 		c.MinSize = image.Point{280, 200}
-		c.Size = image.Point{600, 400}
+		c.Size = styles.MenuWindowSizes
 		c.Title = "Menü"
 		c.Decorated = true
-
-		if m.size != (image.Point{}) {
-			c.Size = m.size
-		}
 	})
 }
 
 func (m *Menu) Close() {
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
-		m.size = c.Size
+		styles.MenuWindowSizes = c.Size
 	})
 }
 
@@ -73,10 +70,19 @@ func (m *Menu) Layout(gtx layout.Context) layout.Dimensions {
 		return layout.Dimensions{}
 	}
 
+	if m.exitClicable.Clicked(gtx) {
+		m.w.Perform(system.ActionClose)
+
+		return layout.Dimensions{}
+	}
+
 	return m.container.Layout(gtx,
 		layout.Rigid(layout.Spacer{Height: 16}.Layout),
 		layout.Rigid(material.Button(styles.MaterialTheme, &m.minesweeperClicable, "Minesweeper").Layout),
 		layout.Rigid(layout.Spacer{Height: 6}.Layout),
 		layout.Rigid(material.Button(styles.MaterialTheme, &m.scrollerClicable, "Scroller").Layout),
+		layout.Flexed(1, layout.Spacer{}.Layout),
+		layout.Rigid(material.Button(styles.MaterialTheme, &m.exitClicable, "Kilépés").Layout),
+		layout.Rigid(layout.Spacer{Height: 16}.Layout),
 	)
 }

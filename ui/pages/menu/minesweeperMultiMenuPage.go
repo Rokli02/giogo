@@ -21,7 +21,6 @@ import (
 type MinesweeperMultiplayerMenu struct {
 	w         *app.Window
 	router    *routerModule.Router[ui.ApplicationCycles, string]
-	size      image.Point
 	container *component.CentralizedContainer
 
 	joinEditor    widget.Editor
@@ -47,23 +46,18 @@ func (m *MinesweeperMultiplayerMenu) Initialize() {
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.MaxSize = image.Point{}
 		c.MinSize = image.Point{280, 200}
-		c.Size = image.Point{600, 400}
+		c.Size = styles.MenuWindowSizes
 		c.Title = "Multiplayer Aknakereső"
 		c.Decorated = true
-
-		if m.size != (image.Point{}) {
-			c.Size = m.size
-		}
 	})
 }
 
 func (m *MinesweeperMultiplayerMenu) Close() {
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
-		m.size = c.Size
+		styles.MenuWindowSizes = c.Size
 	})
 }
 
-// Layout implements ui.ApplicationCycles.
 func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimensions {
 
 	// for _, event := range m.joinEditor.Events() {

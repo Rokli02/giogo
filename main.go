@@ -6,12 +6,14 @@ import (
 	"giogo/ui"
 	"giogo/ui/pages/menu"
 	"giogo/ui/pages/minesweeper"
+	"giogo/ui/pages/minesweeper/engine"
 	"giogo/ui/pages/scroller"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
 	"image"
 	"log"
 	"os"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/io/key"
@@ -80,10 +82,13 @@ func run(w *app.Window) error {
 }
 
 func addRoutes(router *routerModule.Router[ui.ApplicationCycles, string], w *app.Window) {
+	singlePlayerMinesweeperEngine := engine.NewMinesweeperLocalEngine()
+	singlePlayerMinesweeperEngine.Resize(8, 12, 12)
+
 	router.Add(routerModule.MenuPage, menu.NewMenu(w, router))
 	router.Add(routerModule.MinesweeperMenuPage, menu.NewMinesweeperMenu(w, router))
 	router.Add(routerModule.MinesweeperMultiplayerMenuPage, menu.NewMinesweeperMultiplayerMenu(w, router))
-	router.Add(routerModule.MinesweeperPage, minesweeper.NewMinefield(w, router, 8, 12, 12))
+	router.Add(routerModule.MinesweeperPage, minesweeper.NewMinefield(w, router, time.Millisecond*40).SetEngine(singlePlayerMinesweeperEngine))
 	router.Add(routerModule.ScrollerPage, scroller.NewScrollPage(w, 181))
 }
 
@@ -96,7 +101,7 @@ func handleRouting(gtx *layout.Context, router *routerModule.Router[ui.Applicati
 	}
 
 	key.InputOp{
-		Keys: key.Set("0|1|2"),
+		Keys: key.Set("0"),
 		Tag:  0,
 	}.Add(gtx.Ops)
 }
