@@ -3,27 +3,26 @@ package engine
 import (
 	"fmt"
 	"image"
-	"math/rand"
 	"time"
+
+	"giogo/ui/pages/minesweeper/engine/logic"
+	"giogo/ui/pages/minesweeper/model"
 
 	"gioui.org/io/pointer"
 )
-
-// TODO: Létrehozni egy olyan motort, ami képes a multiplayer kezelésésre.
-// TODO: Létrehozni egy szerver komponenst, ami pár gomb megnyomására létrehoz, és bezár egyet
 
 type MinesweeperLocalEngine struct {
 	width    uint16
 	height   uint16
 	maxMines uint16
-	state    MinesweeperState
+	state    model.MinesweeperState
 	revealed uint16
 	marked   uint16
 
-	mineChannel       chan MineElement
+	mineChannel       chan model.MineElement
 	acks              chan uint8
 	mines             uint16
-	matrix            [][]*MineElement
+	matrix            [][]*model.MineElement
 	animationDuration time.Duration
 }
 
@@ -32,7 +31,7 @@ var _ MinesweeperEngine = (*MinesweeperLocalEngine)(nil)
 
 func NewMinesweeperLocalEngine() *MinesweeperLocalEngine {
 	me := &MinesweeperLocalEngine{
-		state: UNDEFINED,
+		state: model.UNDEFINED,
 	}
 
 	return me
@@ -44,19 +43,18 @@ func (me *MinesweeperLocalEngine) Resize(width uint16, height uint16, mines uint
 		me.height = height
 
 		clear(me.matrix)
-		me.matrix = make([][]*MineElement, height)
+		me.matrix = make([][]*model.MineElement, height)
 
 		for rowIndex := range me.matrix {
-			me.matrix[rowIndex] = make([]*MineElement, width)
+			me.matrix[rowIndex] = make([]*model.MineElement, width)
 
 			for colIndex := range me.matrix[rowIndex] {
-				element := &me.matrix[rowIndex][colIndex]
-				*element = &MineElement{Value: 0, Props: HiddenBits, Pos: image.Point{colIndex, rowIndex}}
+				me.matrix[rowIndex][colIndex] = &model.MineElement{Value: 0, Props: model.HiddenBits, Pos: image.Point{colIndex, rowIndex}}
 			}
 		}
 
 		me.maxMines = mines
-		me.state = START
+		me.state = model.START
 		me.revealed = 0
 		me.marked = 0
 
@@ -69,33 +67,33 @@ func (me *MinesweeperLocalEngine) Resize(width uint16, height uint16, mines uint
 func (me *MinesweeperLocalEngine) Restart() {
 	for rowIndex := range me.matrix {
 		for colIndex := range me.matrix[rowIndex] {
-			me.matrix[rowIndex][colIndex] = &MineElement{Value: 0, Props: HiddenBits, Pos: image.Point{colIndex, rowIndex}}
+			me.matrix[rowIndex][colIndex] = &model.MineElement{Value: 0, Props: model.HiddenBits, Pos: image.Point{colIndex, rowIndex}}
 		}
 	}
 
-	me.state = START
+	me.state = model.START
 	me.revealed = 0
 	me.marked = 0
 }
 
-func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType pointer.Buttons) MinesweeperState {
+func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType pointer.Buttons) model.MinesweeperState {
 	element := me.matrix[pos.Y][pos.X]
-	var returnState MinesweeperState = RUNNING
-	var returnElement *MineElement = element
+	var returnState model.MinesweeperState = model.RUNNING
+	var returnElement *model.MineElement = element
 
 	switch me.state {
-	case START:
+	case model.START:
 		fmt.Println("--- Game Start ---")
-		me.state = RUNNING
-		returnState = RUNNING
+		me.state = model.RUNNING
+		returnState = model.RUNNING
 
 		// Legenerálni a bombákat
-		me.generateMines(pos)
+		me.mines = logic.GenerateMines(pos, me.matrix, me.maxMines)
 
 		fallthrough
-	case RUNNING:
+	case model.RUNNING:
 		if element.IsHidden() && clickType == pointer.ButtonSecondary {
-			element.ToggleProp(MarkedBits)
+			element.ToggleProp(model.MarkedBits)
 
 			if element.IsMarked() {
 				me.marked++
@@ -110,35 +108,35 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 
 		switch element.Value {
 		case -1:
-			me.state = LOSE
+			me.state = model.LOSE
 
-			returnState = LOSE
+			returnState = model.LOSE
 		case 0:
-			element.PropOff(HiddenBits)
+			element.PropOff(model.HiddenBits)
 
 			go me.floodNeutralCells(pos)
-			returnState = LOADING
+			returnState = model.LOADING
 		default:
-			element.PropOff(HiddenBits)
+			element.PropOff(model.HiddenBits)
 
-			returnState = RUNNING
+			returnState = model.RUNNING
 			returnElement = element
 		}
 
-		if me.state == RUNNING && me.revealed >= me.width*me.height-me.mines {
+		if me.state == model.RUNNING && me.revealed >= me.width*me.height-me.mines {
 			fmt.Println("--- GG, WIN ---")
-			me.state = WIN
+			me.state = model.WIN
 			me.marked = me.mines
 
 			me.mineChannel <- *returnElement
 			<-me.acks
 
-			return WIN
+			return model.WIN
 		}
 	}
 
 	switch returnState {
-	case RUNNING:
+	case model.RUNNING:
 		me.mineChannel <- *returnElement
 		<-me.acks
 	}
@@ -150,7 +148,7 @@ func (me *MinesweeperLocalEngine) Close() {
 	me.mineChannel = nil
 }
 
-func (me *MinesweeperLocalEngine) SetChannels(mainChannel chan MineElement, acks chan uint8) MinesweeperEngine {
+func (me *MinesweeperLocalEngine) SetChannels(mainChannel chan model.MineElement, acks chan uint8) MinesweeperEngine {
 	me.mineChannel = mainChannel
 	me.acks = acks
 
@@ -171,7 +169,7 @@ func (me *MinesweeperLocalEngine) GetHeight() int {
 	return int(me.height)
 }
 
-func (me *MinesweeperLocalEngine) GetState() MinesweeperState {
+func (me *MinesweeperLocalEngine) GetState() model.MinesweeperState {
 	return me.state
 }
 
@@ -187,13 +185,13 @@ func (me *MinesweeperLocalEngine) GetMines() uint16 {
 	return me.mines
 }
 
-func (me *MinesweeperLocalEngine) GetRemainingMines() *[]*MineElement {
-	matrix := make([]*MineElement, 0, (me.height*me.width)>>2)
+func (me *MinesweeperLocalEngine) GetRemainingMines() *[]*model.MineElement {
+	matrix := make([]*model.MineElement, 0, (me.height*me.width)>>2)
 
 	for rowIndex := range me.matrix {
 		for colIndex := range me.matrix[rowIndex] {
 			if me.matrix[rowIndex][colIndex].IsHidden() {
-				me.matrix[rowIndex][colIndex].PropOff(HiddenBits)
+				me.matrix[rowIndex][colIndex].PropOff(model.HiddenBits)
 
 				matrix = append(matrix, me.matrix[rowIndex][colIndex])
 			}
@@ -203,95 +201,8 @@ func (me *MinesweeperLocalEngine) GetRemainingMines() *[]*MineElement {
 	return &matrix
 }
 
-func (me *MinesweeperLocalEngine) generateMines(clickPos image.Point) [][]*MineElement {
-	minePositions := make([]image.Point, 0, me.maxMines)
-	// Calculate them
-
-	for i, calcTries := 0, 0; i < cap(minePositions) || calcTries > 5; calcTries++ {
-		validPos := true
-
-		// Random num
-		minePos := image.Point{int(rand.Int31n(int32(me.width))), int(rand.Int31n(int32(me.height)))}
-
-		// Check if is it stored already or at 'clickPos'
-		if minePos == clickPos {
-			continue
-		}
-
-		for i := range minePositions {
-			if minePositions[i] == minePos {
-				validPos = false
-				break
-			}
-		}
-
-		if validPos {
-			minePositions = append(minePositions, minePos)
-			i++
-			calcTries = 0
-		}
-	}
-
-	// Clear minefield
-	for rowIndex := range me.matrix {
-		for colIndex := range me.matrix[rowIndex] {
-			me.matrix[rowIndex][colIndex].Value = 0
-		}
-	}
-
-	// Plant mines
-	for i := range minePositions {
-		me.matrix[minePositions[i].Y][minePositions[i].X].Value = -1
-	}
-	me.mines = uint16(len(minePositions))
-
-	// Find mines in the neighborhood, MAAAN!
-	for rowIndex := range me.matrix {
-		for colIndex := range me.matrix[rowIndex] {
-			element := me.matrix[rowIndex][colIndex]
-
-			if element.Value == -1 {
-				continue
-			}
-
-			element.Value = me.neighboringMines(rowIndex, colIndex)
-		}
-	}
-
-	return me.matrix
-}
-
-func (me *MinesweeperLocalEngine) neighboringMines(rowIndexParam, colIndexParam int) int8 {
-	var sum int8 = 0
-	// Row loop
-	for i := -1; i <= 1; i++ {
-		rowIndex := rowIndexParam + i
-		if rowIndex < 0 || rowIndex > int(me.height-1) {
-			continue
-		}
-
-		// Column loop
-		for j := -1; j <= 1; j++ {
-			if j == 0 && i == 0 {
-				continue
-			}
-
-			colIndex := colIndexParam + j
-			if colIndex < 0 || colIndex > int(me.width-1) {
-				continue
-			}
-
-			if me.matrix[rowIndex][colIndex].Value == -1 {
-				sum++
-			}
-		}
-	}
-
-	return sum
-}
-
 func (me *MinesweeperLocalEngine) floodNeutralCells(startingPoint image.Point) {
-	me.state = LOADING
+	me.state = model.LOADING
 	floodedPos := make([]image.Point, 0, 8)
 	floodedPos = append(floodedPos, startingPoint)
 
@@ -317,7 +228,7 @@ func (me *MinesweeperLocalEngine) floodNeutralCells(startingPoint image.Point) {
 
 			// Column loop
 			for j := -1; j <= 1; j++ {
-				if me.state != LOADING {
+				if me.state != model.LOADING {
 					return
 				}
 
@@ -339,7 +250,7 @@ func (me *MinesweeperLocalEngine) floodNeutralCells(startingPoint image.Point) {
 				}
 
 				// felfedni és növelni a felfedettek számát
-				element.PropOff(HiddenBits)
+				element.PropOff(model.HiddenBits)
 				countOfFloodedCells++
 
 				// Ha 0, akkor feldeni, listához hozzáadni
@@ -359,6 +270,6 @@ func (me *MinesweeperLocalEngine) floodNeutralCells(startingPoint image.Point) {
 		}
 	}
 
-	me.state = RUNNING
+	me.state = model.RUNNING
 	me.revealed += countOfFloodedCells
 }

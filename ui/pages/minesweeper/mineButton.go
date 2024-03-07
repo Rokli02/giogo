@@ -2,7 +2,7 @@ package minesweeper
 
 import (
 	"fmt"
-	"giogo/ui/pages/minesweeper/engine"
+	"giogo/ui/pages/minesweeper/model"
 	"giogo/ui/styles"
 	"image"
 	"image/color"
@@ -15,11 +15,6 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
-)
-
-const (
-	EXPLODE = iota
-	FLIP
 )
 
 var (
@@ -46,7 +41,7 @@ type MineButton struct {
 	clickType pointer.Buttons
 }
 
-func (mb *MineButton) Layout(gtx layout.Context, state engine.MinesweeperState) layout.Dimensions {
+func (mb *MineButton) Layout(gtx layout.Context, state model.MinesweeperState) layout.Dimensions {
 	for _, event := range gtx.Events(mb) {
 		switch event := event.(type) {
 		case pointer.Event:
@@ -68,21 +63,21 @@ func (mb *MineButton) Layout(gtx layout.Context, state engine.MinesweeperState) 
 	}
 }
 
-func (mb *MineButton) layout(gtx *layout.Context, state engine.MinesweeperState) {
+func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) {
 	defer op.TransformOp{}.Push(gtx.Ops).Pop()
 	defer clip.Rect{Max: mb.Size}.Push(gtx.Ops).Pop()
 
 	paint.ColorOp{Color: baseColor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	if state == engine.WIN && mb.Value == -1 {
+	if state == model.WIN && mb.Value == -1 {
 		drawMarkedCell(gtx, mb.Size)
 
 		return
 	}
 
 	if mb.Hidden {
-		if state == engine.START || state == engine.RUNNING {
+		if state == model.START || state == model.RUNNING {
 			mb.registerEvents(gtx.Ops)
 		}
 

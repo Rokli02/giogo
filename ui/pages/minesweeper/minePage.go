@@ -2,11 +2,6 @@ package minesweeper
 
 import (
 	"fmt"
-	"giogo/ui"
-	"giogo/ui/pages/minesweeper/engine"
-	routerModule "giogo/ui/router"
-	"giogo/ui/styles"
-	"giogo/utils"
 	"image"
 	"time"
 
@@ -23,6 +18,13 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"golang.org/x/exp/shiny/materialdesign/icons"
+
+	"giogo/ui"
+	"giogo/ui/pages/minesweeper/engine"
+	"giogo/ui/pages/minesweeper/model"
+	routerModule "giogo/ui/router"
+	"giogo/ui/styles"
+	"giogo/utils"
 )
 
 const (
@@ -36,21 +38,21 @@ type MineField struct {
 	engine              engine.MinesweeperEngine
 	w                   *app.Window
 	router              *routerModule.Router[ui.ApplicationCycles, string]
-	mineChannel         chan engine.MineElement
+	mineChannel         chan model.MineElement
 	acks                chan uint8
 	returnHomeClickable widget.Clickable
 	refreshRate         time.Duration
 	rerenderEveryFrame  bool
 }
 
-func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], animationDuration time.Duration) *MineField {
+func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], refreshRate time.Duration) *MineField {
 	mineField := &MineField{
 		BtnSize: image.Pt(32, 32),
 
 		engine:              nil,
 		w:                   w,
 		router:              router,
-		refreshRate:         animationDuration >> 1,
+		refreshRate:         refreshRate,
 		returnHomeClickable: widget.Clickable{},
 	}
 
@@ -62,7 +64,8 @@ func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycle
  */
 
 func (mf *MineField) SetEngine(minesweeperEngine engine.MinesweeperEngine) *MineField {
-	mf.engine = minesweeperEngine.SetAnimationDuration(mf.refreshRate << 1)
+	mf.engine = minesweeperEngine
+
 	if _, ok := minesweeperEngine.(*engine.MinesweeperLocalEngine); !ok {
 		mf.rerenderEveryFrame = true
 	}
@@ -85,7 +88,7 @@ func (mf *MineField) Initialize() {
 	})
 
 	mf.BtnMatrix = make([][]MineButton, mf.engine.GetHeight())
-	mf.mineChannel = make(chan engine.MineElement, 4)
+	mf.mineChannel = make(chan model.MineElement, 4)
 	mf.acks = make(chan uint8)
 
 	mf.engine.SetChannels(mf.mineChannel, mf.acks)
@@ -166,7 +169,7 @@ func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
 
 	defer utils.SetBackgroundColor(&gtx, styles.BACKGROUND_COLOR).Pop()
 
-	if mf.engine.GetState() == engine.LOADING {
+	if mf.engine.GetState() == model.LOADING {
 		op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
 	} else {
 		if mf.rerenderEveryFrame {
@@ -238,25 +241,25 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 				defer clip.Ellipse{Min: gtx.Constraints.Min, Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 
 				switch mf.engine.GetState() {
-				case engine.START:
+				case model.START:
 					fallthrough
-				case engine.END:
+				case model.END:
 					fallthrough
-				case engine.LOADING:
+				case model.LOADING:
 					fallthrough
-				case engine.RUNNING:
+				case model.RUNNING:
 					// Sárga neutrális
 					paint.ColorOp{Color: styles.YELLOW}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
 
 					drawNeutralFace(&gtx)
-				case engine.WIN:
+				case model.WIN:
 					// Zöld mosolygó
 					paint.ColorOp{Color: styles.GREEN}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
 
 					drawHappyFace(&gtx)
-				case engine.LOSE:
+				case model.LOSE:
 					// Piros mérges/szomorú
 					paint.ColorOp{Color: styles.RED}.Add(gtx.Ops)
 					paint.PaintOp{}.Add(gtx.Ops)
@@ -327,9 +330,9 @@ func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {
 	state := mf.engine.OnButtonClick(pos, clickType)
 
 	switch state {
-	case engine.LOSE:
+	case model.LOSE:
 		fallthrough
-	case engine.WIN:
+	case model.WIN:
 		remainingMines := *mf.engine.GetRemainingMines()
 
 		for _, mine := range remainingMines {
