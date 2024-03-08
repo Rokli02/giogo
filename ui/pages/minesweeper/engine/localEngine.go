@@ -112,10 +112,27 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 
 			returnState = model.LOSE
 		case 0:
-			element.PropOff(model.HiddenBits)
-
-			go me.floodNeutralCells(pos)
+			me.state = model.LOADING
 			returnState = model.LOADING
+
+			revealedCells, countOfFloodedCells := logic.RevealedCells(pos, me.matrix)
+			me.revealed += countOfFloodedCells
+
+			go func() {
+				for _, revealedCell := range revealedCells {
+					if me.mineChannel == nil || me.state != model.LOADING {
+						return
+					}
+					element := me.matrix[revealedCell.Y][revealedCell.X]
+
+					me.mineChannel <- *element
+					time.Sleep(me.animationDuration)
+					<-me.acks
+				}
+
+				me.state = model.RUNNING
+				returnState = model.RUNNING
+			}()
 		default:
 			element.PropOff(model.HiddenBits)
 
@@ -199,77 +216,4 @@ func (me *MinesweeperLocalEngine) GetRemainingMines() *[]*model.MineElement {
 	}
 
 	return &matrix
-}
-
-func (me *MinesweeperLocalEngine) floodNeutralCells(startingPoint image.Point) {
-	me.state = model.LOADING
-	floodedPos := make([]image.Point, 0, 8)
-	floodedPos = append(floodedPos, startingPoint)
-
-	if me.mineChannel == nil {
-		return
-	}
-
-	me.mineChannel <- *me.matrix[startingPoint.Y][startingPoint.X]
-	time.Sleep(me.animationDuration)
-	<-me.acks
-
-	countOfFloodedCells := uint16(0)
-
-	for iterator := 0; iterator < len(floodedPos); iterator++ {
-		// Venni a jelenlegi elem rejtett környezetét és azokat hozzáadni egy listához
-		for i := -1; i <= 1; i++ {
-			rowIndex := floodedPos[iterator].Y + i
-
-			// Kilóg felül, vagy alul
-			if rowIndex < 0 || rowIndex > int(me.height-1) {
-				continue
-			}
-
-			// Column loop
-			for j := -1; j <= 1; j++ {
-				if me.state != model.LOADING {
-					return
-				}
-
-				if j == 0 && i == 0 {
-					continue
-				}
-
-				colIndex := floodedPos[iterator].X + j
-
-				// Kilóg bal, vagy jobb oldalt
-				if colIndex < 0 || colIndex > int(me.width-1) {
-					continue
-				}
-
-				// Az adott elem értékét megvizsgálni
-				element := me.matrix[rowIndex][colIndex]
-				if !element.IsHidden() || element.IsMarked() {
-					continue
-				}
-
-				// felfedni és növelni a felfedettek számát
-				element.PropOff(model.HiddenBits)
-				countOfFloodedCells++
-
-				// Ha 0, akkor feldeni, listához hozzáadni
-				if element.Value == 0 {
-					floodedPos = append(floodedPos, element.Pos)
-				}
-
-				// Lassú animáció
-				if me.mineChannel == nil {
-					return
-				}
-
-				me.mineChannel <- *element
-				time.Sleep(me.animationDuration)
-				<-me.acks
-			}
-		}
-	}
-
-	me.state = model.RUNNING
-	me.revealed += countOfFloodedCells
 }

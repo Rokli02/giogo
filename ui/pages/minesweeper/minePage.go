@@ -3,9 +3,11 @@ package minesweeper
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/f32"
 	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
@@ -28,7 +30,13 @@ import (
 )
 
 const (
-	heightOfHeader = 42
+	heightOfHeader       = 42
+	game_end_txt_padding = 4
+)
+
+var (
+	game_end_cover_shadow = color.NRGBA{A: 0xCC}
+	game_end_txt_highligh = color.NRGBA{A: 0x69, R: 0xbf, G: 0xbf, B: 0xbf}
 )
 
 type MineField struct {
@@ -108,6 +116,7 @@ func (mf *MineField) Initialize() {
 	go func() {
 		for {
 			message, isOpen := <-mf.mineChannel
+
 			if !isOpen {
 				close(mf.acks)
 				mf.engine.Close()
@@ -172,15 +181,24 @@ func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
 	if mf.engine.GetState() == model.LOADING {
 		op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
 	} else {
-		if mf.rerenderEveryFrame {
-			op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
-		}
-
 		key.InputOp{
 			Tag:  mf,
 			Keys: key.Set("Ctrl-R"),
 		}.Add(gtx.Ops)
 	}
+	// Ha nem működne a server oldali w.Invalidate() hivogatás és LOADING State állítás
+	// if mf.engine.GetState() == model.LOADING {
+	// 	op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
+	// } else {
+	// 	if mf.rerenderEveryFrame {
+	// 		op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
+	// 	}
+
+	// 	key.InputOp{
+	// 		Tag:  mf,
+	// 		Keys: key.Set("Ctrl-R"),
+	// 	}.Add(gtx.Ops)
+	// }
 
 	return layout.N.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		flexD := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -315,15 +333,66 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
 	rowList := &layout.List{Axis: layout.Vertical, Alignment: layout.Start}
 
-	return rowList.Layout(gtx, len(mf.BtnMatrix), func(gtx layout.Context, rowIndex int) layout.Dimensions {
-		list := &layout.List{Axis: layout.Horizontal, Alignment: layout.Start}
+	return layout.Stack{}.Layout(gtx,
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return rowList.Layout(gtx, len(mf.BtnMatrix), func(gtx layout.Context, rowIndex int) layout.Dimensions {
+				list := &layout.List{Axis: layout.Horizontal, Alignment: layout.Start}
 
-		return list.Layout(gtx, len(mf.BtnMatrix[rowIndex]), func(gtx layout.Context, colIndex int) layout.Dimensions {
-			btnDimension := mf.BtnMatrix[rowIndex][colIndex].Layout(gtx, mf.engine.GetState())
+				return list.Layout(gtx, len(mf.BtnMatrix[rowIndex]), func(gtx layout.Context, colIndex int) layout.Dimensions {
+					btnDimension := mf.BtnMatrix[rowIndex][colIndex].Layout(gtx, mf.engine.GetState())
 
-			return btnDimension
-		})
-	})
+					return btnDimension
+				})
+			})
+		}),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			isGameEnded := false
+			var txt string
+
+			switch mf.engine.GetState() {
+			case model.WIN:
+				isGameEnded = true
+				txt = "GG EZ"
+			case model.LOSE:
+				isGameEnded = true
+				txt = "Na majd holnap"
+			}
+
+			if isGameEnded {
+				defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+				paint.Fill(gtx.Ops, game_end_cover_shadow)
+				tempGtxConstraints := gtx.Constraints
+				gtx.Constraints.Min.Y = 0
+
+				// Szöveg
+				rec := op.Record(gtx.Ops)
+				lbl := material.Label(styles.MaterialTheme, unit.Sp(20), txt)
+				lbl.Alignment = text.Middle
+				lbl.Font.Weight = font.Medium
+				lblDim := lbl.Layout(gtx)
+				macro := rec.Stop()
+
+				op.Offset(image.Point{
+					0,
+					((gtx.Constraints.Max.Y - lblDim.Size.Y) >> 1) - game_end_txt_padding - heightOfHeader,
+				}).Add(gtx.Ops)
+
+				txtCoverHighlighter(&gtx, &lblDim)
+
+				op.Offset(image.Point{
+					0,
+					game_end_txt_padding,
+				}).Add(gtx.Ops)
+
+				macro.Add(gtx.Ops)
+
+				gtx.Constraints = tempGtxConstraints
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}
+
+			return layout.Dimensions{}
+		}),
+	)
 }
 
 func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {
@@ -343,4 +412,36 @@ func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {
 			btn.Marked = mine.IsMarked()
 		}
 	}
+}
+
+func txtCoverHighlighter(gtx *layout.Context, lblDim *layout.Dimensions) {
+	// LinearGradient the first part of text cover
+	highlightCover := clip.Rect{Max: image.Point{gtx.Constraints.Max.X >> 1, lblDim.Size.Y + game_end_txt_padding<<1}}
+
+	hcPop := highlightCover.Push(gtx.Ops)
+	middleOfHighlightY := float32(game_end_txt_padding + lblDim.Size.Y>>1)
+	paint.LinearGradientOp{
+		Stop1:  f32.Pt(0, middleOfHighlightY),
+		Stop2:  f32.Pt(float32(gtx.Constraints.Max.X>>2), middleOfHighlightY),
+		Color1: color.NRGBA{},
+		Color2: game_end_txt_highligh,
+	}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+
+	hcPop.Pop()
+
+	// LinearGradient the second part of text cover
+	highlightOffset := op.Offset(image.Point{gtx.Constraints.Max.X >> 1, 0}).Push(gtx.Ops)
+	hcPop = highlightCover.Push(gtx.Ops)
+
+	paint.LinearGradientOp{
+		Stop1:  f32.Pt(0, middleOfHighlightY),
+		Stop2:  f32.Pt(float32(gtx.Constraints.Max.X-gtx.Constraints.Max.X>>2), middleOfHighlightY),
+		Color1: game_end_txt_highligh,
+		Color2: color.NRGBA{},
+	}.Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+
+	hcPop.Pop()
+	highlightOffset.Pop()
 }
