@@ -11,6 +11,7 @@ type Router[Route interface{}, Key int | string] struct {
 	w            *app.Window
 	routes       map[Key]Route
 	currentRoute *Route
+	previousKey  Key
 	currentKey   Key
 }
 
@@ -41,13 +42,13 @@ func (r *Router[Route, Key]) Add(key Key, route Route) {
 
 func (r *Router[Route, Key]) Select(key Key) (e error) {
 	currentRoute, hasItem := r.routes[key]
-
 	if !hasItem {
 		e = errors.New("no route found")
 
 		return
 	}
 
+	r.previousKey = r.currentKey
 	r.currentRoute = &currentRoute
 	r.currentKey = key
 
@@ -56,6 +57,13 @@ func (r *Router[Route, Key]) Select(key Key) (e error) {
 
 func (r *Router[Route, Key]) GoTo(key Key) (e error) {
 	e = r.Select(key)
+	r.Rerender()
+
+	return
+}
+
+func (r *Router[Route, Key]) GoBack() (e error) {
+	e = r.Select(r.previousKey)
 	r.Rerender()
 
 	return
