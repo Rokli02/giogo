@@ -1,7 +1,7 @@
 ## GioGo
 
 Ez egy ___Golang___ nyelven iródott, grafikus asztali alkalmazás, ami a ___Gioui___ grafikus könyvtárat használja fel. </br>
-Lényegében egy teszt tesztelgetős, tanulós projektnek indult, de egy aknakereső játék jött ki a végén. </br>
+Lényegében egy tesztelgetős, tanulós projektnek indult, de egy aknakereső játék jött ki a végén. </br>
 #### Jelenleg támogatott játékmódok:
   - Egyszerú Single player
 
