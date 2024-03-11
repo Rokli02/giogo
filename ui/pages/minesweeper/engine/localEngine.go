@@ -64,6 +64,8 @@ func (me *MinesweeperLocalEngine) Resize(width uint16, height uint16, mines uint
 	}
 }
 
+func (me *MinesweeperLocalEngine) Initialize() {}
+
 func (me *MinesweeperLocalEngine) Restart() {
 	for rowIndex := range me.matrix {
 		for colIndex := range me.matrix[rowIndex] {
@@ -165,7 +167,7 @@ func (me *MinesweeperLocalEngine) Close() {
 	me.mineChannel = nil
 }
 
-func (me *MinesweeperLocalEngine) SetChannels(mainChannel chan model.MineElement, acks chan uint8) MinesweeperEngine {
+func (me *MinesweeperLocalEngine) SetChannels(mainChannel chan model.MineElement, acks chan uint8, engineCommand chan EngineCommand) MinesweeperEngine {
 	me.mineChannel = mainChannel
 	me.acks = acks
 
@@ -202,7 +204,7 @@ func (me *MinesweeperLocalEngine) GetMines() uint16 {
 	return me.mines
 }
 
-func (me *MinesweeperLocalEngine) GetRemainingMines() *[]*model.MineElement {
+func (me *MinesweeperLocalEngine) GetRemainingMines() []*model.MineElement {
 	matrix := make([]*model.MineElement, 0, (me.height*me.width)>>2)
 
 	for rowIndex := range me.matrix {
@@ -215,5 +217,5 @@ func (me *MinesweeperLocalEngine) GetRemainingMines() *[]*model.MineElement {
 		}
 	}
 
-	return &matrix
+	return matrix
 }

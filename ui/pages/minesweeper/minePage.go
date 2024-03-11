@@ -48,6 +48,7 @@ type MineField struct {
 	router              *routerModule.Router[ui.ApplicationCycles, string]
 	mineChannel         chan model.MineElement
 	acks                chan uint8
+	engineCommand       chan engine.EngineCommand
 	returnHomeClickable widget.Clickable
 	refreshRate         time.Duration
 	rerenderEveryFrame  bool
@@ -86,6 +87,8 @@ func (mf *MineField) Initialize() {
 		panic("Engine is not set for Minesweeper")
 	}
 
+	mf.engine.Initialize()
+
 	sizeOfMinesweeper := image.Pt(mf.BtnSize.X*mf.engine.GetWidth(), mf.BtnSize.Y*mf.engine.GetHeight()+heightOfHeader)
 	mf.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.Title = "Minesweeper COPY"
@@ -99,7 +102,7 @@ func (mf *MineField) Initialize() {
 	mf.mineChannel = make(chan model.MineElement, 4)
 	mf.acks = make(chan uint8)
 
-	mf.engine.SetChannels(mf.mineChannel, mf.acks)
+	mf.engine.SetChannels(mf.mineChannel, mf.acks, mf.engineCommand)
 
 	for rowIndex := range mf.BtnMatrix {
 		mf.BtnMatrix[rowIndex] = make([]MineButton, mf.engine.GetWidth())
@@ -111,6 +114,22 @@ func (mf *MineField) Initialize() {
 			btn.Pos = image.Point{colIndex, rowIndex}
 			btn.Size = mf.BtnSize
 		}
+	}
+
+	if _, isClientEngine := mf.engine.(*engine.MinesweeperClientEngine); isClientEngine {
+		go func() {
+			for command := range mf.engineCommand {
+				switch command {
+				case engine.RESTART:
+					mf.RestartGui()
+					mf.w.Invalidate()
+				case engine.RERENDER:
+					mf.w.Invalidate()
+				case engine.GO_BACK:
+					mf.router.GoBack()
+				}
+			}
+		}()
 	}
 
 	go func() {
@@ -141,6 +160,12 @@ func (mf *MineField) Initialize() {
 func (mf *MineField) Restart() {
 	mf.engine.Restart()
 
+	if _, isLocalEngine := mf.engine.(*engine.MinesweeperLocalEngine); isLocalEngine {
+		mf.RestartGui()
+	}
+}
+
+func (mf *MineField) RestartGui() {
 	for rowIndex := range mf.BtnMatrix {
 		for colIndex := range mf.BtnMatrix[rowIndex] {
 			btn := &mf.BtnMatrix[rowIndex][colIndex]
@@ -186,19 +211,6 @@ func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
 			Keys: key.Set("Ctrl-R"),
 		}.Add(gtx.Ops)
 	}
-	// Ha nem működne a server oldali w.Invalidate() hivogatás és LOADING State állítás
-	// if mf.engine.GetState() == model.LOADING {
-	// 	op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
-	// } else {
-	// 	if mf.rerenderEveryFrame {
-	// 		op.InvalidateOp{At: time.Now().Add(mf.refreshRate)}.Add(gtx.Ops)
-	// 	}
-
-	// 	key.InputOp{
-	// 		Tag:  mf,
-	// 		Keys: key.Set("Ctrl-R"),
-	// 	}.Add(gtx.Ops)
-	// }
 
 	return layout.N.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		flexD := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -229,7 +241,8 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 			iconColor := styles.BLOOD_ORANGE
 
 			if mf.returnHomeClickable.Clicked(gtx) {
-				mf.router.GoTo(routerModule.MinesweeperMenuPage)
+				mf.router.WipeHistoryUntilKey(routerModule.MinesweeperMenuPage)
+				mf.router.GoBack()
 			}
 
 			if mf.returnHomeClickable.Pressed() {
@@ -331,10 +344,10 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 }
 
 func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
-	rowList := &layout.List{Axis: layout.Vertical, Alignment: layout.Start}
-
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			rowList := &layout.List{Axis: layout.Vertical, Alignment: layout.Start}
+
 			return rowList.Layout(gtx, len(mf.BtnMatrix), func(gtx layout.Context, rowIndex int) layout.Dimensions {
 				list := &layout.List{Axis: layout.Horizontal, Alignment: layout.Start}
 
@@ -402,7 +415,7 @@ func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {
 	case model.LOSE:
 		fallthrough
 	case model.WIN:
-		remainingMines := *mf.engine.GetRemainingMines()
+		remainingMines := mf.engine.GetRemainingMines()
 
 		for _, mine := range remainingMines {
 			btn := &mf.BtnMatrix[mine.Pos.Y][mine.Pos.X]

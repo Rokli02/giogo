@@ -10,12 +10,13 @@ import (
 )
 
 type MinesweeperEngine interface {
+	Initialize()
 	Resize(width uint16, height uint16, mines uint16)
 	Restart()
 	Close()
 	OnButtonClick(pos image.Point, clickType pointer.Buttons) model.MinesweeperState
-	GetRemainingMines() *[]*model.MineElement
-	SetChannels(mainChannel chan model.MineElement, acks chan uint8) MinesweeperEngine
+	GetRemainingMines() []*model.MineElement
+	SetChannels(mainChannel chan model.MineElement, acks chan uint8, engineCommand chan EngineCommand) MinesweeperEngine
 	SetAnimationDuration(animationDuration time.Duration) MinesweeperEngine
 	GetWidth() int
 	GetHeight() int
@@ -24,3 +25,11 @@ type MinesweeperEngine interface {
 	GetMarked() uint16
 	GetMines() uint16
 }
+
+type EngineCommand uint8
+
+const (
+	RESTART EngineCommand = iota
+	RERENDER
+	GO_BACK
+)

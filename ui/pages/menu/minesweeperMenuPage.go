@@ -67,7 +67,7 @@ func (m *MinesweeperMenu) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	if m.backClickable.Clicked(gtx) {
-		m.router.GoTo(routerModule.MenuPage)
+		m.router.GoBack()
 
 		return layout.Dimensions{}
 	}

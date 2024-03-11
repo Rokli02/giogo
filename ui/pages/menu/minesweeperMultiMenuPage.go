@@ -1,11 +1,14 @@
 package menu
 
 import (
+	"giogo/server"
 	"giogo/ui"
 	"giogo/ui/component"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
 	"image"
+	"strconv"
+	"strings"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -22,11 +25,14 @@ type MinesweeperMultiplayerMenu struct {
 	w         *app.Window
 	router    *routerModule.Router[ui.ApplicationCycles, string]
 	container *component.CentralizedContainer
+	// socketReader chan []byte
+	client *server.MinesweeperServerClient
 
-	joinEditor    widget.Editor
-	joinClickable widget.Clickable
-	hostClickable widget.Clickable
-	backClickable widget.Clickable
+	testSocketText string
+	joinEditor     widget.Editor
+	joinClickable  widget.Clickable
+	hostClickable  widget.Clickable
+	backClickable  widget.Clickable
 }
 
 var _ ui.ApplicationCycles = (*MinesweeperMultiplayerMenu)(nil)
@@ -36,7 +42,12 @@ func NewMinesweeperMultiplayerMenu(w *app.Window, router *routerModule.Router[ui
 		w:          w,
 		router:     router,
 		container:  component.NewCentralizedContainer(false, true),
+		client:     server.NewMinesweeperServerClient("localhost", 4222),
 		joinEditor: widget.Editor{Alignment: text.Start, SingleLine: true, MaxLen: 128, Submit: true},
+	}
+
+	m.client.OnClosedConnection = func() {
+		m.router.GoBack()
 	}
 
 	return m
@@ -47,7 +58,7 @@ func (m *MinesweeperMultiplayerMenu) Initialize() {
 		c.MaxSize = image.Point{}
 		c.MinSize = image.Point{280, 200}
 		c.Size = styles.MenuWindowSizes
-		c.Title = "Multiplayer Aknakereső"
+		c.Title = "Aknakereső Lobby"
 		c.Decorated = true
 	})
 }
@@ -56,20 +67,12 @@ func (m *MinesweeperMultiplayerMenu) Close() {
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
 		styles.MenuWindowSizes = c.Size
 	})
+
+	m.testSocketText = ""
+	m.client.Disconnect()
 }
 
 func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimensions {
-
-	// for _, event := range m.joinEditor.Events() {
-	// 	switch evt := event.(type) {
-	// 	case widget.ChangeEvent:
-	// 		fmt.Println("Change event:", evt)
-	// 	case widget.SubmitEvent:
-	// 		fmt.Println("Submit event:", evt)
-	// 	default:
-	// 		fmt.Println("Editor event:", evt)
-	// 	}
-	// }
 	var isSubmited bool = false
 
 	if events := m.joinEditor.Events(); len(events) > 0 {
@@ -77,9 +80,20 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 	}
 
 	if m.joinClickable.Clicked(gtx) || isSubmited {
-		// TODO: Szöveg mező legyen felette, amibe bele lehet írni az IP-t és arra megpróbál csatlakozni
-		m.joinEditor.SetText("")
+		txts := strings.Split(m.joinEditor.Text(), ":")
+		m.client.Host = txts[0]
+		m.client.Port = 80
 
+		if len(txts) > 1 {
+			port, err := strconv.ParseUint(txts[1], 10, 0)
+
+			if err == nil {
+				m.client.Port = uint(port)
+			}
+		}
+
+		m.joinEditor.SetText("")
+		m.client.Join()
 		// return layout.Dimensions{}
 	}
 
@@ -88,11 +102,16 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 		//			 és felhasználók várhatnak itt az indulásra.
 		//			 Számukra nem szerkeszthető módon látják a beállításokat, csat a tényleges host tudja azokat írni és broadcastolja a belépett felhasználók számára.
 
+		socketData := server.SocketData{}
+		socketData.DataType = server.POSITION
+		socketData.Data = []byte{0, 1, 2, 3, 4, 5, 6, 100, 101}
+		m.client.WriteData(socketData.ToBytes())
+
 		// return layout.Dimensions{}
 	}
 
 	if m.backClickable.Clicked(gtx) {
-		m.router.GoTo(routerModule.MinesweeperMenuPage)
+		m.router.GoBack()
 
 		return layout.Dimensions{}
 	}
@@ -121,6 +140,8 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 		layout.Rigid(material.Button(styles.MaterialTheme, &m.joinClickable, "Csatlakozás játékhoz").Layout),
 		layout.Rigid(layout.Spacer{Height: 6}.Layout),
 		layout.Rigid(material.Button(styles.MaterialTheme, &m.hostClickable, "Játék létrehozás").Layout),
+		layout.Rigid(layout.Spacer{Height: 6}.Layout),
+		layout.Rigid(material.Label(styles.MaterialTheme, unit.Sp(16), m.testSocketText).Layout),
 		layout.Flexed(1, layout.Spacer{}.Layout),
 		layout.Rigid(material.Button(styles.MaterialTheme, &m.backClickable, "Vissza").Layout),
 		layout.Rigid(layout.Spacer{Height: 16}.Layout),

@@ -11,7 +11,7 @@ type Router[Route interface{}, Key int | string] struct {
 	w            *app.Window
 	routes       map[Key]Route
 	currentRoute *Route
-	previousKey  Key
+	previousKeys []Key
 	currentKey   Key
 }
 
@@ -19,6 +19,7 @@ func NewRouter[Route interface{}, Key int | string](w *app.Window) (r *Router[Ro
 	r = &Router[Route, Key]{
 		w:            w,
 		routes:       make(map[Key]Route),
+		previousKeys: make([]Key, 0, 1),
 		currentRoute: nil,
 	}
 
@@ -48,7 +49,6 @@ func (r *Router[Route, Key]) Select(key Key) (e error) {
 		return
 	}
 
-	r.previousKey = r.currentKey
 	r.currentRoute = &currentRoute
 	r.currentKey = key
 
@@ -56,14 +56,36 @@ func (r *Router[Route, Key]) Select(key Key) (e error) {
 }
 
 func (r *Router[Route, Key]) GoTo(key Key) (e error) {
-	e = r.Select(key)
+	previousKey := r.currentKey
+
+	if err := r.Select(key); err != nil {
+		e = err
+
+		return
+	}
+
+	r.previousKeys = append(r.previousKeys, previousKey)
+
 	r.Rerender()
 
 	return
 }
 
 func (r *Router[Route, Key]) GoBack() (e error) {
-	e = r.Select(r.previousKey)
+
+	if len(r.previousKeys) == 0 {
+		return
+	}
+
+	lastIndex := len(r.previousKeys) - 1
+	lastKey := r.previousKeys[lastIndex]
+	r.previousKeys = r.previousKeys[:lastIndex]
+
+	if err := r.Select(lastKey); err != nil {
+		e = err
+
+		return
+	}
 	r.Rerender()
 
 	return
@@ -83,4 +105,22 @@ func (r *Router[Route, Key]) CurrentRoute() Route {
 
 func (r *Router[Route, Key]) Rerender() {
 	r.w.Invalidate()
+}
+
+func (r *Router[Route, Key]) WipeHistory() {
+	r.previousKeys = make([]Key, 0, 1)
+}
+
+func (r *Router[Route, Key]) WipeHistoryLastN(n int) {
+	r.previousKeys = r.previousKeys[:len(r.previousKeys)-n]
+}
+
+func (r *Router[Route, Key]) WipeHistoryUntilKey(key Key) {
+	for i := len(r.previousKeys) - 1; i >= 0; i-- {
+		if r.previousKeys[i] == key {
+			r.previousKeys = r.previousKeys[:i]
+
+			return
+		}
+	}
 }
