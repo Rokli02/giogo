@@ -4,9 +4,10 @@ Ez egy ___Golang___ nyelven iródott, grafikus asztali alkalmazás, ami a ___Gio
 Lényegében egy tesztelgetős, tanulós projektnek indult, de egy aknakereső játék jött ki a végén. </br>
 #### Jelenleg támogatott játékmódok:
   - Egyszerú Single player
+  - Co-op aknakereső
 
 #### Fejlesztés alatt levő játékmódok:
-  - Co-op aknakereső
+  -
 
 ### Futtatás
 

@@ -22,12 +22,12 @@ type MinesweeperServer struct {
 	connectionsToRemove []*websocket.Conn
 	connectionMutext    sync.Mutex
 	clientToServer      chan ClientMessage
+	healthCheckChan     chan uint8
 
 	engine *MinesweeperServerEngine
 
-	HealthCheckChan chan uint8
-	ClientLimit     uint8
-	CanJoin         bool
+	ClientLimit uint8
+	CanJoin     bool
 }
 
 func NewMinesweeperServer(host string, port uint, clientLimit uint8) *MinesweeperServer {
@@ -45,7 +45,7 @@ func NewMinesweeperServer(host string, port uint, clientLimit uint8) *Minesweepe
 }
 
 func (ms *MinesweeperServer) Open() {
-	ms.HealthCheckChan = make(chan uint8)
+	ms.healthCheckChan = make(chan uint8)
 	var usedPort uint = ms.port
 
 	for i := 0; i < count_of_port_reservation_tries; i++ {
@@ -81,10 +81,10 @@ func (ms *MinesweeperServer) Open() {
 			factorialRate := 1.3
 			factorial := factorialRate
 
-			for ms.HealthCheckChan != nil && healthCheckTimes < 10 {
+			for ms.healthCheckChan != nil && healthCheckTimes < 10 {
 				_, err := http.Get(fmt.Sprintf("http://%s:%d%s", ms.host, ms.port, websocket_status_path))
 				if err == nil {
-					ms.HealthCheckChan <- 1
+					ms.healthCheckChan <- 1
 
 					return
 				}
@@ -114,6 +114,10 @@ func (ms *MinesweeperServer) Open() {
 			fmt.Println("Ismeretlen baj van a szerverrel")
 		}
 	}()
+
+	if ms.healthCheckChan != nil {
+		<-ms.healthCheckChan
+	}
 }
 
 func (ms *MinesweeperServer) Close() {
@@ -129,11 +133,11 @@ func (ms *MinesweeperServer) Close() {
 
 	ms.clientToServer = nil
 
-	if ms.HealthCheckChan != nil {
-		close(ms.HealthCheckChan)
+	if ms.healthCheckChan != nil {
+		close(ms.healthCheckChan)
 	}
 
-	ms.HealthCheckChan = nil
+	ms.healthCheckChan = nil
 
 	ms.server.Close()
 }
@@ -226,6 +230,12 @@ func (ms *MinesweeperServer) handleJoin(w *http.ResponseWriter, r *http.Request)
 
 	ms.connections = append(ms.connections, connection)
 
+	socketData := SocketData{DataType: SERVER_STATUS}
+	serverStatus := ServerStatus{Joined: len(ms.connections), Limit: int(ms.ClientLimit), CanJoin: ms.CanJoin}
+	socketData.Data = serverStatus.ToBytes()
+
+	ms.broadcastToClient(socketData)
+
 	return connection
 }
 
@@ -310,6 +320,12 @@ func (ms *MinesweeperServer) removeConnection(connection *websocket.Conn) {
 	}
 
 	ms.connections = ms.connections[:length-1]
+
+	socketData := SocketData{DataType: SERVER_STATUS}
+	serverStatus := ServerStatus{Joined: len(ms.connections), Limit: int(ms.ClientLimit), CanJoin: ms.CanJoin}
+	socketData.Data = serverStatus.ToBytes()
+
+	ms.broadcastToClient(socketData)
 }
 
 func (ms *MinesweeperServer) broadcastToClient(data SocketData) {

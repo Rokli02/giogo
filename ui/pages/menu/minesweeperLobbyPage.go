@@ -1,10 +1,12 @@
 package menu
 
 import (
+	"fmt"
 	"image"
 
 	"gioui.org/app"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -24,6 +26,8 @@ type MinesweeperLobby struct {
 	router    *routerModule.Router[ui.ApplicationCycles, string]
 	container *component.CentralizedContainer
 	footer    *component.CentralizedContainer
+	gameSize  image.Point
+	mines     uint16
 
 	server       *server.MinesweeperServer
 	clientEngine *engine.MinesweeperClientEngine
@@ -36,10 +40,12 @@ type MinesweeperLobby struct {
 
 var _ ui.ApplicationCycles = (*MinesweeperLobby)(nil)
 
-func NewMinesweeperLobby(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], clientEngine *engine.MinesweeperClientEngine, server *server.MinesweeperServer) *MinesweeperLobby {
+func NewMinesweeperLobby(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], clientEngine *engine.MinesweeperClientEngine, server *server.MinesweeperServer, gameSize image.Point, mines uint16) *MinesweeperLobby {
 	m := &MinesweeperLobby{
 		w:            w,
 		router:       router,
+		gameSize:     gameSize,
+		mines:        mines,
 		server:       server,
 		clientEngine: clientEngine,
 		container:    component.NewCentralizedContainer(false, true),
@@ -56,8 +62,6 @@ func NewMinesweeperLobby(w *app.Window, router *routerModule.Router[ui.Applicati
 func (m *MinesweeperLobby) Initialize() {
 	if m.server != nil {
 		m.server.Open()
-
-		<-m.server.HealthCheckChan
 
 		m.clientEngine.Client.Host = m.server.GetHost()
 		m.clientEngine.Client.Port = m.server.GetPort()
@@ -94,25 +98,57 @@ func (m *MinesweeperLobby) Close() {
 }
 
 func (m *MinesweeperLobby) Layout(gtx layout.Context) layout.Dimensions {
-	m.handleEvents(&gtx)
-
-	if m.clientEngine.GetState() == model.WAITING {
-		return m.container.Layout(gtx,
-			layout.Rigid(layout.Spacer{Height: 16}.Layout),
-			layout.Rigid(material.Label(styles.MaterialTheme, styles.MaterialTheme.TextSize, "Lobby").Layout),
-			layout.Rigid(layout.Spacer{Height: 16}.Layout),
-			layout.Flexed(1, layout.Spacer{}.Layout),
-			layout.Rigid(layout.Spacer{Height: 16}.Layout),
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Max.Y = 75
-
-				return m.footer.Layout(gtx, showStartButton(m.server != nil, &m.startClickable, &m.exitClickable)...)
-			}),
-			layout.Rigid(layout.Spacer{Height: 16}.Layout),
-		)
+	if m.clientEngine.GetState() != model.WAITING {
+		return m.minePage.Layout(gtx)
 	}
 
-	return m.minePage.Layout(gtx)
+	m.handleEvents(&gtx)
+
+	// TODO: Felhasználók, szerver cím, bejelentkezett/limit megejelnítése
+	// TODO: A felhasználókhoz név hozzáfűzése
+	return layout.Stack{}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Point{}
+
+			macro := op.Record(gtx.Ops)
+			labelDim := material.Label(styles.MaterialTheme, unit.Sp(12), fmt.Sprintf("%s:%d", m.clientEngine.Client.Host, m.clientEngine.Client.Port)).Layout(gtx)
+			labelCallOp := macro.Stop()
+
+			op.Offset(image.Point{4, gtx.Constraints.Max.Y - labelDim.Size.Y - 4}).Add(gtx.Ops)
+
+			labelCallOp.Add(gtx.Ops)
+
+			return labelDim
+		}),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Point{}
+
+			macro := op.Record(gtx.Ops)
+			labelDim := material.Label(styles.MaterialTheme, unit.Sp(12), fmt.Sprintf("%d/%d", m.clientEngine.ServerStatus.Joined, m.clientEngine.ServerStatus.Limit)).Layout(gtx)
+			labelCallOp := macro.Stop()
+
+			op.Offset(image.Point{4, 4}).Add(gtx.Ops)
+
+			labelCallOp.Add(gtx.Ops)
+
+			return labelDim
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return m.container.Layout(gtx,
+				layout.Rigid(layout.Spacer{Height: 16}.Layout),
+				layout.Rigid(material.Label(styles.MaterialTheme, styles.MaterialTheme.TextSize, "Lobby").Layout),
+				layout.Rigid(layout.Spacer{Height: 16}.Layout),
+				layout.Flexed(1, layout.Spacer{}.Layout),
+				layout.Rigid(layout.Spacer{Height: 16}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.Y = 75
+
+					return m.footer.Layout(gtx, showStartButton(m.server != nil, &m.startClickable, &m.exitClickable)...)
+				}),
+				layout.Rigid(layout.Spacer{Height: 16}.Layout),
+			)
+		}),
+	)
 }
 
 func (m *MinesweeperLobby) handleEvents(gtx *layout.Context) {
@@ -122,7 +158,7 @@ func (m *MinesweeperLobby) handleEvents(gtx *layout.Context) {
 
 	if m.startClickable.Clicked(*gtx) {
 		m.server.DisableJoin()
-		m.clientEngine.Resize(8, 10, 10)
+		m.clientEngine.Resize(uint16(m.gameSize.X), uint16(m.gameSize.Y), m.mines)
 	}
 }
 

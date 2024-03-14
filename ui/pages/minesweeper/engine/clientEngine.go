@@ -7,19 +7,23 @@ import (
 	"image"
 	"time"
 
+	"gioui.org/app"
 	"gioui.org/io/pointer"
 
 	"giogo/ui/pages/minesweeper/model"
 )
 
 type MinesweeperClientEngine struct {
-	width    uint16
-	height   uint16
-	maxMines uint16
-	state    model.MinesweeperState
-	revealed uint16
-	marked   uint16
-	Client   *serverModule.MinesweeperServerClient
+	w *app.Window
+
+	width        uint16
+	height       uint16
+	maxMines     uint16
+	state        model.MinesweeperState
+	revealed     uint16
+	marked       uint16
+	Client       *serverModule.MinesweeperServerClient
+	ServerStatus *serverModule.ServerStatus
 
 	mineChannel    chan model.MineElement
 	acks           chan uint8
@@ -32,9 +36,11 @@ type MinesweeperClientEngine struct {
 // Interface implementation check
 var _ MinesweeperEngine = (*MinesweeperClientEngine)(nil)
 
-func NewMinesweeperClientEngine(host string, port uint) *MinesweeperClientEngine {
+func NewMinesweeperClientEngine(w *app.Window, host string, port uint) *MinesweeperClientEngine {
 	m := &MinesweeperClientEngine{
-		state: model.WAITING,
+		w:            w,
+		state:        model.WAITING,
+		ServerStatus: &serverModule.ServerStatus{},
 	}
 
 	m.Client = serverModule.NewMinesweeperServerClient(host, port)
@@ -68,6 +74,14 @@ func (m *MinesweeperClientEngine) Initialize() {
 			socketData := serverModule.SocketData{}
 			socketData.FromBytes(readData)
 
+			if socketData.DataType == serverModule.SERVER_STATUS {
+				m.ServerStatus.FromBytes(socketData.Data, 0)
+
+				m.w.Invalidate()
+
+				continue
+			}
+
 			m.serverToClient <- socketData
 		}
 	}()
@@ -93,7 +107,8 @@ func (m *MinesweeperClientEngine) Initialize() {
 				case model.LOADING:
 					if state != m.state {
 						m.state = state
-						m.engineCommand <- RERENDER
+						m.w.Invalidate()
+						// m.engineCommand <- RERENDER
 					}
 
 					m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
@@ -106,7 +121,8 @@ func (m *MinesweeperClientEngine) Initialize() {
 				case model.LOSE:
 					fallthrough
 				case model.WIN:
-					m.engineCommand <- RERENDER
+					m.w.Invalidate()
+					// m.engineCommand <- RERENDER
 				}
 
 				m.state = state
@@ -151,7 +167,8 @@ func (m *MinesweeperClientEngine) Initialize() {
 
 				m.mineChannel <- element
 				<-m.acks
-				m.engineCommand <- RERENDER
+				m.w.Invalidate()
+				// m.engineCommand <- RERENDER
 			case serverModule.UNKNOWN:
 				fmt.Println("Ismeretlen adattípus érkezett")
 			}

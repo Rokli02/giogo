@@ -1,6 +1,10 @@
 package server
 
-import "nhooyr.io/websocket"
+import (
+	"giogo/utils"
+
+	"nhooyr.io/websocket"
+)
 
 type DataType byte
 
@@ -23,6 +27,7 @@ const (
 	// visszaküldi milyen eredménnyel ért véget a meccs valamint
 	// a még fel nem fedett cellákat | client -> server -> client
 	END_OF_GAME
+	SERVER_STATUS
 )
 
 // TODO: 'END_OF_GAME' kivétele és logika áthelyezés a 'STATE'-be, lényegében felesleges
@@ -41,6 +46,8 @@ func (d DataType) ToString() string {
 		return "Restart"
 	case END_OF_GAME:
 		return "End of Game"
+	case SERVER_STATUS:
+		return "Server Status"
 	case UNKNOWN:
 		fallthrough
 	default:
@@ -74,4 +81,26 @@ func (d *SocketData) FromBytes(bytes []byte) {
 type ClientMessage struct {
 	connection *websocket.Conn
 	socketData *SocketData
+}
+
+type ServerStatus struct {
+	Joined  int
+	Limit   int
+	CanJoin bool
+}
+
+func (s *ServerStatus) ToBytes() []byte {
+	b := make([]byte, 0, 9)
+
+	b = append(b, utils.ByteConverter.IntToBytes(s.Joined)...)
+	b = append(b, utils.ByteConverter.IntToBytes(s.Limit)...)
+	b = append(b, utils.ByteConverter.BoolToByte(s.CanJoin))
+
+	return b
+}
+
+func (s *ServerStatus) FromBytes(b []byte, fromIndex int) {
+	s.Joined = utils.ByteConverter.BytesToInt(b, fromIndex)
+	s.Limit = utils.ByteConverter.BytesToInt(b, fromIndex+4)
+	s.CanJoin = utils.ByteConverter.BytesToBool(b, fromIndex+8)
 }

@@ -96,7 +96,7 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 	}
 
 	if m.loadingStart.IsZero() && (m.joinClickable.Clicked(gtx) || isSubmited) {
-		m.onClickJoin()
+		m.joinClickHandler()
 	}
 
 	if m.hostClickable.Clicked(gtx) {
@@ -111,6 +111,7 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 		return layout.Dimensions{}
 	}
 
+	// TODO: Részletezze miért nem tudott csatlakozni
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return m.container.Layout(gtx,
@@ -156,7 +157,7 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 
 func (*MinesweeperMultiplayerMenu) Restart() {}
 
-func (m *MinesweeperMultiplayerMenu) onClickJoin() {
+func (m *MinesweeperMultiplayerMenu) joinClickHandler() {
 	if !m.isJoinableServerFound {
 		m.failedToEstablishConnection = false
 		m.loadingStart = time.Now()
@@ -177,10 +178,10 @@ func (m *MinesweeperMultiplayerMenu) onClickJoin() {
 			m.joinEditor.SetText("")
 			joined, limit, canJoin := m.client.GetStatus()
 
-			if limit != 0 && canJoin {
-				fmt.Printf("szerver stat: %d/%d\n", joined, limit)
+			if limit != 0 {
+				fmt.Printf("szerver stat: %d/%d | in Lobby (%t))\n", joined, limit, canJoin)
 
-				if joined < limit {
+				if joined < limit && canJoin {
 					m.isJoinableServerFound = true
 					m.joinEditor.ReadOnly = true
 					m.joinEditor.SetText(fmt.Sprintf("%d/%d", joined, limit))
@@ -195,9 +196,9 @@ func (m *MinesweeperMultiplayerMenu) onClickJoin() {
 			m.loadingStart = time.Time{}
 		}()
 	} else if !m.failedToEstablishConnection {
-		clientEngine := engine.NewMinesweeperClientEngine(m.client.Host, m.client.Port)
+		clientEngine := engine.NewMinesweeperClientEngine(m.w, m.client.Host, m.client.Port)
 
-		m.router.Add(routerModule.MinesweeperLobbyPage, NewMinesweeperLobby(m.w, m.router, clientEngine, nil))
+		m.router.Add(routerModule.MinesweeperLobbyPage, NewMinesweeperLobby(m.w, m.router, clientEngine, nil, image.Point{}, 0))
 		m.router.GoTo(routerModule.MinesweeperLobbyPage)
 	}
 
