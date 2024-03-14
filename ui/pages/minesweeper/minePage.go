@@ -89,48 +89,53 @@ func (mf *MineField) Initialize() {
 
 	mf.engine.Initialize()
 
-	sizeOfMinesweeper := image.Pt(mf.BtnSize.X*mf.engine.GetWidth(), mf.BtnSize.Y*mf.engine.GetHeight()+heightOfHeader)
 	mf.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.Title = "Minesweeper COPY"
-		c.MinSize = sizeOfMinesweeper
-		c.MaxSize = sizeOfMinesweeper
-		c.Size = sizeOfMinesweeper
 		c.Decorated = true
 	})
 
-	mf.BtnMatrix = make([][]MineButton, mf.engine.GetHeight())
 	mf.mineChannel = make(chan model.MineElement, 4)
 	mf.acks = make(chan uint8)
 
-	mf.engine.SetChannels(mf.mineChannel, mf.acks, mf.engineCommand)
+	mf.engineCommand = make(chan engine.EngineCommand)
 
-	for rowIndex := range mf.BtnMatrix {
-		mf.BtnMatrix[rowIndex] = make([]MineButton, mf.engine.GetWidth())
+	go func() {
+		for command := range mf.engineCommand {
+			fmt.Printf("MinePage received command from engine (%s)\n", command.ToString())
 
-		for colIndex := range mf.BtnMatrix[rowIndex] {
-			btn := &mf.BtnMatrix[rowIndex][colIndex]
+			switch command {
+			case engine.RESIZE:
+				mf.ResizeGui()
+				mf.w.Invalidate()
+			case engine.RESTART:
+				mf.RestartGui()
+				mf.w.Invalidate()
+			case engine.RERENDER:
+				mf.w.Invalidate()
+			case engine.GO_BACK:
+				mf.router.GoBackTo(routerModule.MinesweeperMenuPage)
+			case engine.AFTER_CLICK_LOSE:
+				fallthrough
+			case engine.AFTER_CLICK_WIN:
+				remainingMines := mf.engine.GetRemainingMines()
 
-			btn.onClick = mf.onButtonClick
-			btn.Pos = image.Point{colIndex, rowIndex}
-			btn.Size = mf.BtnSize
-		}
-	}
+				for _, mine := range remainingMines {
+					btn := &mf.BtnMatrix[mine.Pos.Y][mine.Pos.X]
 
-	if _, isClientEngine := mf.engine.(*engine.MinesweeperClientEngine); isClientEngine {
-		go func() {
-			for command := range mf.engineCommand {
-				switch command {
-				case engine.RESTART:
-					mf.RestartGui()
-					mf.w.Invalidate()
-				case engine.RERENDER:
-					mf.w.Invalidate()
-				case engine.GO_BACK:
-					mf.router.GoBack()
+					btn.Value = mine.Value
+					btn.Hidden = mine.IsHidden()
+					btn.Marked = mine.IsMarked()
 				}
+
+				mf.w.Invalidate()
 			}
-		}()
-	}
+
+			fmt.Printf("(%s) State after command: (width=%d) | (height=%d) | (marked=%d) | (mines=%d)\n",
+				mf.engine.GetState().ToString(), mf.engine.GetWidth(), mf.engine.GetHeight(),
+				mf.engine.GetMarked(), mf.engine.GetMines(),
+			)
+		}
+	}()
 
 	go func() {
 		for {
@@ -154,7 +159,8 @@ func (mf *MineField) Initialize() {
 		}
 	}()
 
-	mf.Restart()
+	mf.engine.SetChannels(mf.mineChannel, mf.acks, mf.engineCommand)
+	mf.ResizeGui()
 }
 
 func (mf *MineField) Restart() {
@@ -175,6 +181,32 @@ func (mf *MineField) RestartGui() {
 			btn.Marked = false
 		}
 	}
+}
+
+func (mf *MineField) ResizeGui() {
+	mf.BtnMatrix = make([][]MineButton, mf.engine.GetHeight())
+
+	for rowIndex := range mf.BtnMatrix {
+		mf.BtnMatrix[rowIndex] = make([]MineButton, mf.engine.GetWidth())
+
+		for colIndex := range mf.BtnMatrix[rowIndex] {
+			btn := &mf.BtnMatrix[rowIndex][colIndex]
+
+			btn.Value = 0
+			btn.Hidden = true
+			btn.Marked = false
+			btn.onClick = mf.engine.OnButtonClick
+			btn.Pos = image.Point{colIndex, rowIndex}
+			btn.Size = mf.BtnSize
+		}
+	}
+
+	sizeOfMinesweeper := image.Pt(mf.BtnSize.X*mf.engine.GetWidth(), mf.BtnSize.Y*mf.engine.GetHeight()+heightOfHeader)
+	mf.w.Option(func(_ unit.Metric, c *app.Config) {
+		c.MinSize = sizeOfMinesweeper
+		c.MaxSize = sizeOfMinesweeper
+		c.Size = sizeOfMinesweeper
+	})
 }
 
 func (mf *MineField) Close() {
@@ -241,8 +273,8 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 			iconColor := styles.BLOOD_ORANGE
 
 			if mf.returnHomeClickable.Clicked(gtx) {
-				mf.router.WipeHistoryUntilKey(routerModule.MinesweeperMenuPage)
-				mf.router.GoBack()
+				// mf.router.WipeHistoryUntilKey(routerModule.MinesweeperMenuPage)
+				mf.router.GoBackTo(routerModule.MinesweeperMenuPage)
 			}
 
 			if mf.returnHomeClickable.Pressed() {
@@ -408,24 +440,7 @@ func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
 	)
 }
 
-func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {
-	state := mf.engine.OnButtonClick(pos, clickType)
-
-	switch state {
-	case model.LOSE:
-		fallthrough
-	case model.WIN:
-		remainingMines := mf.engine.GetRemainingMines()
-
-		for _, mine := range remainingMines {
-			btn := &mf.BtnMatrix[mine.Pos.Y][mine.Pos.X]
-
-			btn.Value = mine.Value
-			btn.Hidden = mine.IsHidden()
-			btn.Marked = mine.IsMarked()
-		}
-	}
-}
+func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {}
 
 func txtCoverHighlighter(gtx *layout.Context, lblDim *layout.Dimensions) {
 	// LinearGradient the first part of text cover

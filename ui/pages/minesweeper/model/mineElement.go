@@ -5,8 +5,9 @@ import "image"
 type MineElementProps uint8
 
 const (
-	HiddenBits MineElementProps = 0b1
-	MarkedBits MineElementProps = 0b10
+	HiddenBits               MineElementProps = 0b1
+	MarkedBits               MineElementProps = 0b10
+	SizeOfMineElementInBytes                  = (4 + 4) + 1 + 1
 )
 
 type MineElement struct {

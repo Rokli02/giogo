@@ -21,7 +21,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
-	"gioui.org/widget/material"
 )
 
 func main() {
@@ -42,10 +41,9 @@ func main() {
 }
 
 func run(w *app.Window) error {
-	styles.MaterialTheme = material.NewTheme()
 	var ops op.Ops
-	var gtx layout.Context
 
+	styles.InitializeStyles()
 	assets.InitializeAssets()
 	router := routerModule.NewRouter[ui.ApplicationCycles, string](w)
 	addRoutes(router, w)
@@ -61,7 +59,7 @@ func run(w *app.Window) error {
 		case system.DestroyEvent:
 			return e.Err
 		case system.FrameEvent:
-			gtx = layout.NewContext(&ops, e)
+			gtx := layout.NewContext(&ops, e)
 			gtx.Constraints.Min = image.Point{}
 
 			handleRouting(&gtx, router)
@@ -82,13 +80,14 @@ func run(w *app.Window) error {
 }
 
 func addRoutes(router *routerModule.Router[ui.ApplicationCycles, string], w *app.Window) {
-	singlePlayerMinesweeperEngine := engine.NewMinesweeperLocalEngine()
+	singlePlayerMinesweeperEngine := engine.NewMinesweeperLocalEngine().SetAnimationDuration(time.Millisecond * 40)
 	singlePlayerMinesweeperEngine.Resize(8, 12, 12)
 
 	router.Add(routerModule.MenuPage, menu.NewMenu(w, router))
 	router.Add(routerModule.MinesweeperMenuPage, menu.NewMinesweeperMenu(w, router))
 	router.Add(routerModule.MinesweeperMultiplayerMenuPage, menu.NewMinesweeperMultiplayerMenu(w, router))
-	router.Add(routerModule.MinesweeperPage, minesweeper.NewMinefield(w, router, time.Millisecond*40).SetEngine(singlePlayerMinesweeperEngine))
+	router.Add(routerModule.MinesweeperCreateLobbyMenuPage, menu.NewMinesweeperCreateLobbyMenu(w, router))
+	router.Add(routerModule.MinesweeperPage, minesweeper.NewMinefield(w, router, time.Millisecond*20).SetEngine(singlePlayerMinesweeperEngine))
 	router.Add(routerModule.ScrollerPage, scroller.NewScrollPage(w, 181))
 }
 
@@ -96,12 +95,15 @@ func handleRouting(gtx *layout.Context, router *routerModule.Router[ui.Applicati
 	for _, evt := range gtx.Events(0) {
 		switch event := evt.(type) {
 		case key.Event:
-			router.Select(event.Name)
+			if event.Name == key.NameEscape {
+				router.Select(routerModule.MenuPage)
+				router.WipeHistory()
+			}
 		}
 	}
 
 	key.InputOp{
-		Keys: key.Set("0"),
+		Keys: key.Set("Esc"),
 		Tag:  0,
 	}.Add(gtx.Ops)
 }

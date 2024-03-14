@@ -1,9 +1,11 @@
 package router
 
 const (
-	MenuPage                       = "0"
+	MenuPage                       = "mm"
 	MinesweeperMenuPage            = "mmp"
 	MinesweeperMultiplayerMenuPage = "mmmp"
+	MinesweeperCreateLobbyMenuPage = "mclmp"
+	MinesweeperLobbyPage           = "mlp"
 	MinesweeperPage                = "mp"
 	ScrollerPage                   = "sp"
 )

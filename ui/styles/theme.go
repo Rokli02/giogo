@@ -1,6 +1,7 @@
 package styles
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 
@@ -8,7 +9,6 @@ import (
 )
 
 var (
-	MaterialTheme    *material.Theme
 	BACKGROUND_COLOR = color.NRGBA{R: 0x20, G: 0x20, B: 0x20, A: 0xFF}
 	GREEN            = color.NRGBA{A: 0xFF, R: 0x04, G: 0x80, B: 0x25} // 04 80 25
 	YELLOWISH_GREEN  = color.NRGBA{A: 0xFF, R: 0x6c, G: 0x96, B: 0x1e} // 6c 96 1e
@@ -29,3 +29,19 @@ var (
 var (
 	MenuWindowSizes = image.Point{360, 500}
 )
+
+var (
+	MaterialTheme *material.Theme
+	CancelTheme   *material.Theme
+)
+
+func InitializeStyles() {
+	fmt.Println("Initializing Styles and Themes")
+
+	MaterialTheme = material.NewTheme()
+	CancelTheme = material.NewTheme()
+
+	CancelTheme.ContrastFg = color.NRGBA{A: 0xFF, R: 0xe8, G: 0xd9, B: 0xda} //#E8D9DA
+	// CancelTheme.ContrastFg = color.NRGBA{A: 0xFF, R: 0x36, G: 0x09, B: 0x05} //#360905	✅
+	CancelTheme.ContrastBg = color.NRGBA{A: 0xFF, R: 0xc2, G: 0x28, B: 0x1d} //#C2281D
+}

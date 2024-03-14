@@ -78,7 +78,7 @@ func (m *MinesweeperMenu) Layout(gtx layout.Context) layout.Dimensions {
 		layout.Rigid(layout.Spacer{Height: 6}.Layout),
 		layout.Rigid(material.Button(styles.MaterialTheme, &m.multiPlayerClickable, "Többjátékos mód").Layout),
 		layout.Flexed(1, layout.Spacer{}.Layout),
-		layout.Rigid(material.Button(styles.MaterialTheme, &m.backClickable, "Vissza").Layout),
+		layout.Rigid(material.Button(styles.CancelTheme, &m.backClickable, "Vissza").Layout),
 		layout.Rigid(layout.Spacer{Height: 16}.Layout),
 	)
 }

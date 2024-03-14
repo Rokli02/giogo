@@ -21,6 +21,7 @@ type MinesweeperLocalEngine struct {
 
 	mineChannel       chan model.MineElement
 	acks              chan uint8
+	engineCommand     chan EngineCommand
 	mines             uint16
 	matrix            [][]*model.MineElement
 	animationDuration time.Duration
@@ -38,30 +39,26 @@ func NewMinesweeperLocalEngine() *MinesweeperLocalEngine {
 }
 
 func (me *MinesweeperLocalEngine) Resize(width uint16, height uint16, mines uint16) {
-	if width != me.width || height != me.height {
-		me.width = width
-		me.height = height
+	me.width = width
+	me.height = height
 
-		clear(me.matrix)
-		me.matrix = make([][]*model.MineElement, height)
+	clear(me.matrix)
+	me.matrix = make([][]*model.MineElement, height)
 
-		for rowIndex := range me.matrix {
-			me.matrix[rowIndex] = make([]*model.MineElement, width)
+	for rowIndex := range me.matrix {
+		me.matrix[rowIndex] = make([]*model.MineElement, width)
 
-			for colIndex := range me.matrix[rowIndex] {
-				me.matrix[rowIndex][colIndex] = &model.MineElement{Value: 0, Props: model.HiddenBits, Pos: image.Point{colIndex, rowIndex}}
-			}
+		for colIndex := range me.matrix[rowIndex] {
+			me.matrix[rowIndex][colIndex] = &model.MineElement{Value: 0, Props: model.HiddenBits, Pos: image.Point{colIndex, rowIndex}}
 		}
-
-		me.maxMines = mines
-		me.state = model.START
-		me.revealed = 0
-		me.marked = 0
-
-		me.mines = mines
-	} else {
-		me.Restart()
 	}
+
+	me.maxMines = mines
+	me.state = model.START
+	me.revealed = 0
+	me.marked = 0
+
+	me.mines = mines
 }
 
 func (me *MinesweeperLocalEngine) Initialize() {}
@@ -78,16 +75,18 @@ func (me *MinesweeperLocalEngine) Restart() {
 	me.marked = 0
 }
 
-func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType pointer.Buttons) model.MinesweeperState {
+func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType pointer.Buttons) {
 	element := me.matrix[pos.Y][pos.X]
-	var returnState model.MinesweeperState = model.RUNNING
-	var returnElement *model.MineElement = element
+	var resultState model.MinesweeperState = model.RUNNING
+	var resultElement *model.MineElement = element
 
 	switch me.state {
+	case model.UNDEFINED:
+		fallthrough
 	case model.START:
 		fmt.Println("--- Game Start ---")
 		me.state = model.RUNNING
-		returnState = model.RUNNING
+		resultState = model.RUNNING
 
 		// Legenerálni a bombákat
 		me.mines = logic.GenerateMines(pos, me.matrix, me.maxMines)
@@ -112,10 +111,10 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 		case -1:
 			me.state = model.LOSE
 
-			returnState = model.LOSE
+			resultState = model.LOSE
 		case 0:
 			me.state = model.LOADING
-			returnState = model.LOADING
+			resultState = model.LOADING
 
 			revealedCells, countOfFloodedCells := logic.RevealedCells(pos, me.matrix)
 			me.revealed += countOfFloodedCells
@@ -133,34 +132,35 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 				}
 
 				me.state = model.RUNNING
-				returnState = model.RUNNING
+				resultState = model.RUNNING
 			}()
 		default:
 			element.PropOff(model.HiddenBits)
 
-			returnState = model.RUNNING
-			returnElement = element
+			resultState = model.RUNNING
+			resultElement = element
 		}
 
 		if me.state == model.RUNNING && me.revealed >= me.width*me.height-me.mines {
 			fmt.Println("--- GG, WIN ---")
 			me.state = model.WIN
+			resultState = model.WIN
 			me.marked = me.mines
 
-			me.mineChannel <- *returnElement
+			me.mineChannel <- *resultElement
 			<-me.acks
-
-			return model.WIN
 		}
 	}
 
-	switch returnState {
+	switch resultState {
 	case model.RUNNING:
-		me.mineChannel <- *returnElement
+		me.mineChannel <- *resultElement
 		<-me.acks
+	case model.WIN:
+		me.engineCommand <- AFTER_CLICK_WIN
+	case model.LOSE:
+		me.engineCommand <- AFTER_CLICK_LOSE
 	}
-
-	return returnState
 }
 
 func (me *MinesweeperLocalEngine) Close() {
@@ -170,6 +170,7 @@ func (me *MinesweeperLocalEngine) Close() {
 func (me *MinesweeperLocalEngine) SetChannels(mainChannel chan model.MineElement, acks chan uint8, engineCommand chan EngineCommand) MinesweeperEngine {
 	me.mineChannel = mainChannel
 	me.acks = acks
+	me.engineCommand = engineCommand
 
 	return me
 }

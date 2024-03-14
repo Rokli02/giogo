@@ -38,7 +38,7 @@ func (r *Router[Route, Key]) Add(key Key, route Route) {
 		return
 	}
 
-	fmt.Printf("Route '%v' has already been added!", key)
+	fmt.Printf("Route '%v' has already been added!\n", key)
 }
 
 func (r *Router[Route, Key]) Select(key Key) (e error) {
@@ -72,7 +72,6 @@ func (r *Router[Route, Key]) GoTo(key Key) (e error) {
 }
 
 func (r *Router[Route, Key]) GoBack() (e error) {
-
 	if len(r.previousKeys) == 0 {
 		return
 	}
@@ -86,6 +85,40 @@ func (r *Router[Route, Key]) GoBack() (e error) {
 
 		return
 	}
+
+	r.Rerender()
+
+	return
+}
+
+func (r *Router[Route, Key]) GoBackTo(key Key) (e error) {
+	if len(r.previousKeys) == 0 {
+		return
+	}
+
+	indexOfKey := -1
+	for i := len(r.previousKeys) - 1; i >= 0; i-- {
+		if r.previousKeys[i] == key {
+			indexOfKey = i
+
+			break
+		}
+	}
+
+	if indexOfKey == -1 {
+		e = errors.New("couldn't find key in history")
+
+		return
+	}
+
+	r.previousKeys = r.previousKeys[:indexOfKey]
+
+	if err := r.Select(key); err != nil {
+		e = err
+
+		return
+	}
+
 	r.Rerender()
 
 	return

@@ -1,7 +1,6 @@
 package menu
 
 import (
-	"fmt"
 	"giogo/ui"
 	"giogo/ui/component"
 	routerModule "giogo/ui/router"
@@ -38,8 +37,6 @@ func NewMenu(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, st
 }
 
 func (m *Menu) Initialize() {
-	fmt.Println("Menu initialized")
-
 	m.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.MaxSize = image.Point{}
 		c.MinSize = image.Point{280, 200}
@@ -82,7 +79,7 @@ func (m *Menu) Layout(gtx layout.Context) layout.Dimensions {
 		layout.Rigid(layout.Spacer{Height: 6}.Layout),
 		layout.Rigid(material.Button(styles.MaterialTheme, &m.scrollerClicable, "Scroller").Layout),
 		layout.Flexed(1, layout.Spacer{}.Layout),
-		layout.Rigid(material.Button(styles.MaterialTheme, &m.exitClicable, "Kilépés").Layout),
+		layout.Rigid(material.Button(styles.CancelTheme, &m.exitClicable, "Kilépés").Layout),
 		layout.Rigid(layout.Spacer{Height: 16}.Layout),
 	)
 }

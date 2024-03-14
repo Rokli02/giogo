@@ -16,7 +16,9 @@ import (
 const useEmbededAssets = true
 
 var (
-	MarkedFieldImg widget.Image
+	MarkedFieldImg    widget.Image
+	GreenCheckMarkImg widget.Image
+	RedXMarkImg       widget.Image
 )
 
 //go:embed imgs
@@ -110,6 +112,8 @@ func initializeLoadedImgs() {
 
 func initializeWidgetImages() {
 	MarkedFieldImg = widget.Image{Src: paint.NewImageOp(Images["marked"]), Fit: widget.Cover}
+	GreenCheckMarkImg = widget.Image{Src: paint.NewImageOp(Images["joined_L"]), Fit: widget.Cover}
+	RedXMarkImg = widget.Image{Src: paint.NewImageOp(Images["joined_X"]), Fit: widget.Cover}
 }
 
 func GetWidgetImage(name string, size int) widget.Image {
@@ -117,8 +121,8 @@ func GetWidgetImage(name string, size int) widget.Image {
 
 	res, has := customWidgetCache[key]
 	if !has {
-		customWidgetCache[key] = widget.Image{Src: paint.NewImageOp(resizeImage(name, size)), Fit: widget.Cover}
 		res = widget.Image{Src: paint.NewImageOp(resizeImage(name, size)), Fit: widget.Cover}
+		customWidgetCache[key] = res
 	}
 
 	return res
