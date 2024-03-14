@@ -12,6 +12,7 @@ func RevealedCells(startingPoint image.Point, matrix [][]*model.MineElement) (re
 	floodedPos = append(floodedPos, startingPoint)
 	height := len(matrix)
 	width := len(matrix[0])
+	countOfFloodedCells = 1
 
 	matrix[startingPoint.Y][startingPoint.X].PropOff(model.HiddenBits)
 

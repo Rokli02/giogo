@@ -61,7 +61,9 @@ func (me *MinesweeperLocalEngine) Resize(width uint16, height uint16, mines uint
 	me.mines = mines
 }
 
-func (me *MinesweeperLocalEngine) Initialize() {}
+func (me *MinesweeperLocalEngine) Initialize() {
+	me.Restart()
+}
 
 func (me *MinesweeperLocalEngine) Restart() {
 	for rowIndex := range me.matrix {
@@ -78,7 +80,6 @@ func (me *MinesweeperLocalEngine) Restart() {
 func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType pointer.Buttons) {
 	element := me.matrix[pos.Y][pos.X]
 	var resultState model.MinesweeperState = model.RUNNING
-	var resultElement *model.MineElement = element
 
 	switch me.state {
 	case model.UNDEFINED:
@@ -138,7 +139,6 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 			element.PropOff(model.HiddenBits)
 
 			resultState = model.RUNNING
-			resultElement = element
 		}
 
 		if me.state == model.RUNNING && me.revealed >= me.width*me.height-me.mines {
@@ -147,14 +147,14 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 			resultState = model.WIN
 			me.marked = me.mines
 
-			me.mineChannel <- *resultElement
+			me.mineChannel <- *element
 			<-me.acks
 		}
 	}
 
 	switch resultState {
 	case model.RUNNING:
-		me.mineChannel <- *resultElement
+		me.mineChannel <- *element
 		<-me.acks
 	case model.WIN:
 		me.engineCommand <- AFTER_CLICK_WIN

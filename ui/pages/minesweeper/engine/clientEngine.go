@@ -108,7 +108,6 @@ func (m *MinesweeperClientEngine) Initialize() {
 					if state != m.state {
 						m.state = state
 						m.w.Invalidate()
-						// m.engineCommand <- RERENDER
 					}
 
 					m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
@@ -122,7 +121,6 @@ func (m *MinesweeperClientEngine) Initialize() {
 					fallthrough
 				case model.WIN:
 					m.w.Invalidate()
-					// m.engineCommand <- RERENDER
 				}
 
 				m.state = state
@@ -168,7 +166,6 @@ func (m *MinesweeperClientEngine) Initialize() {
 				m.mineChannel <- element
 				<-m.acks
 				m.w.Invalidate()
-				// m.engineCommand <- RERENDER
 			case serverModule.UNKNOWN:
 				fmt.Println("Ismeretlen adattípus érkezett")
 			}

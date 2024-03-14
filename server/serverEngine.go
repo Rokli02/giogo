@@ -102,7 +102,6 @@ func (m *MinesweeperServerEngine) Restart() {
 }
 
 func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType pointer.Buttons) {
-	fmt.Println("\n - Pos:", pos)
 	element := m.matrix[pos.Y][pos.X]
 
 	switch m.state {
@@ -203,7 +202,6 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 			m.broadcastToClient(socketData)
 		}
 
-		fmt.Println("After click states:", m.state.ToString(), "revealed:", m.revealed, "width|height|mines:", m.width, m.height, m.mines)
 		if (m.state == model.RUNNING || m.state == model.LOADING) && m.revealed >= m.width*m.height-m.mines {
 			fmt.Println("--- GG, WIN ---")
 			m.state = model.WIN
@@ -248,27 +246,3 @@ func (m *MinesweeperServerEngine) SetAnimationDuration(animationDuration time.Du
 
 	return m
 }
-
-// func (m *MinesweeperServerEngine) GetWidth() int {
-// 	return int(m.width)
-// }
-
-// func (m *MinesweeperServerEngine) GetHeight() int {
-// 	return int(m.height)
-// }
-
-// func (m *MinesweeperServerEngine) GetState() model.MinesweeperState {
-// 	return m.state
-// }
-
-// func (m *MinesweeperServerEngine) GetRevealed() uint16 {
-// 	return m.revealed
-// }
-
-// func (m *MinesweeperServerEngine) GetMarked() uint16 {
-// 	return m.marked
-// }
-
-// func (m *MinesweeperServerEngine) GetMines() uint16 {
-// 	return m.mines
-// }

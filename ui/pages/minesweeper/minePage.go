@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	heightOfHeader       = 42
+	heightOfHeader       = 32
 	game_end_txt_padding = 4
 )
 
@@ -56,7 +56,7 @@ type MineField struct {
 
 func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], refreshRate time.Duration) *MineField {
 	mineField := &MineField{
-		BtnSize: image.Pt(32, 32),
+		BtnSize: image.Pt(24, 24),
 
 		engine:              nil,
 		w:                   w,
@@ -273,7 +273,6 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 			iconColor := styles.BLOOD_ORANGE
 
 			if mf.returnHomeClickable.Clicked(gtx) {
-				// mf.router.WipeHistoryUntilKey(routerModule.MinesweeperMenuPage)
 				mf.router.GoBackTo(routerModule.MinesweeperMenuPage)
 			}
 
@@ -439,8 +438,6 @@ func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
 		}),
 	)
 }
-
-func (mf *MineField) onButtonClick(pos image.Point, clickType pointer.Buttons) {}
 
 func txtCoverHighlighter(gtx *layout.Context, lblDim *layout.Dimensions) {
 	// LinearGradient the first part of text cover
