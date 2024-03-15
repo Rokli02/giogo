@@ -10,3 +10,8 @@ const (
 const (
 	count_of_port_reservation_tries = 5
 )
+
+const (
+	Private_Host = "localhost"
+	Public_Host  = "0.0.0.0"
+)

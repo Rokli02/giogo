@@ -106,8 +106,6 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 			break
 		}
 
-		me.revealed++
-
 		switch element.Value {
 		case -1:
 			me.state = model.LOSE
@@ -117,8 +115,8 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 			me.state = model.LOADING
 			resultState = model.LOADING
 
-			revealedCells, countOfFloodedCells := logic.RevealedCells(pos, me.matrix)
-			me.revealed += countOfFloodedCells
+			revealedCells := logic.RevealedCells(pos, me.matrix)
+			me.revealed += uint16(len(revealedCells))
 
 			go func() {
 				for _, revealedCell := range revealedCells {
@@ -137,9 +135,12 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 			}()
 		default:
 			element.PropOff(model.HiddenBits)
+			me.revealed++
 
 			resultState = model.RUNNING
 		}
+
+		fmt.Printf("On click (%s): revealed(%d) | goodCells(%d)\n", me.state.ToString(), me.revealed, me.width*me.height-me.mines)
 
 		if me.state == model.RUNNING && me.revealed >= me.width*me.height-me.mines {
 			fmt.Println("--- GG, WIN ---")

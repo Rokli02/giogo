@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"giogo/utils"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,6 +75,14 @@ func (ms *MinesweeperServer) Open() {
 
 	go ms.handleClientActions()
 
+	if ms.host == Public_Host {
+		if address, err := getLocalIp(); err != nil {
+			fmt.Println(err)
+		} else {
+			ms.host = address
+		}
+	}
+
 	go func() {
 		fmt.Printf("Server is listening on ws://%s\n", ms.server.Addr)
 
@@ -81,7 +91,7 @@ func (ms *MinesweeperServer) Open() {
 			factorialRate := 1.3
 			factorial := factorialRate
 
-			for ms.healthCheckChan != nil && healthCheckTimes < 10 {
+			for ms.healthCheckChan != nil && healthCheckTimes < 8 {
 				_, err := http.Get(fmt.Sprintf("http://%s:%d%s", ms.host, ms.port, websocket_status_path))
 				if err == nil {
 					ms.healthCheckChan <- 1
@@ -359,4 +369,20 @@ func isPortAvailable(host string, port uint) bool {
 	// }
 
 	// return true
+}
+
+func getLocalIp() (string, error) {
+	conn, err := net.Dial("udp", "192.168.0.0:80")
+	if err != nil {
+		return Private_Host, errors.New("server | error during local address check")
+	}
+
+	defer conn.Close()
+
+	localAddress := strings.Split(conn.LocalAddr().String(), ":")
+	if len(localAddress) == 0 {
+		return Private_Host, errors.New("server | couldn't split up local address")
+	}
+
+	return localAddress[0], nil
 }

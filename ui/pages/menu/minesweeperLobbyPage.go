@@ -104,8 +104,7 @@ func (m *MinesweeperLobby) Layout(gtx layout.Context) layout.Dimensions {
 
 	m.handleEvents(&gtx)
 
-	// TODO: Felhasználók, szerver cím, bejelentkezett/limit megejelnítése
-	// TODO: A felhasználókhoz név hozzáfűzése
+	// TODO: Felhasználók név hozzáfűzése és azok megjelenítése
 	return layout.Stack{}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min = image.Point{}

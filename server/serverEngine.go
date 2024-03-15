@@ -141,8 +141,6 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 			break
 		}
 
-		m.revealed++
-
 		switch element.Value {
 		case -1:
 			m.state = model.LOSE
@@ -164,8 +162,8 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 		case 0:
 			m.state = model.LOADING
 
-			revealedCells, countOfFloodedCells := logic.RevealedCells(pos, m.matrix)
-			m.revealed += countOfFloodedCells
+			revealedCells := logic.RevealedCells(pos, m.matrix)
+			m.revealed += uint16(len(revealedCells))
 
 			go func() {
 				for _, revealedCell := range revealedCells {
@@ -192,6 +190,7 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 		default:
 			element.PropOff(model.HiddenBits)
 			m.state = model.RUNNING
+			m.revealed++
 
 			socketData := SocketData{DataType: POSITION}
 			socketData.Data = make([]byte, 0, 13)
@@ -202,7 +201,7 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 			m.broadcastToClient(socketData)
 		}
 
-		if (m.state == model.RUNNING || m.state == model.LOADING) && m.revealed >= m.width*m.height-m.mines {
+		if m.state == model.RUNNING && m.revealed >= m.width*m.height-m.mines {
 			fmt.Println("--- GG, WIN ---")
 			m.state = model.WIN
 			m.marked = m.mines

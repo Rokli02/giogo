@@ -5,14 +5,13 @@ import (
 	"image"
 )
 
-func RevealedCells(startingPoint image.Point, matrix [][]*model.MineElement) (revealedPos []image.Point, countOfFloodedCells uint16) {
-	revealedPos = make([]image.Point, 0, 8)
+func RevealedCells(startingPoint image.Point, matrix [][]*model.MineElement) []image.Point {
+	revealedPos := make([]image.Point, 0, 8)
 	revealedPos = append(revealedPos, startingPoint)
 	floodedPos := make([]image.Point, 0, 8)
 	floodedPos = append(floodedPos, startingPoint)
 	height := len(matrix)
 	width := len(matrix[0])
-	countOfFloodedCells = 1
 
 	matrix[startingPoint.Y][startingPoint.X].PropOff(model.HiddenBits)
 
@@ -47,7 +46,6 @@ func RevealedCells(startingPoint image.Point, matrix [][]*model.MineElement) (re
 
 				// felfedni és növelni a felfedettek számát
 				element.PropOff(model.HiddenBits)
-				countOfFloodedCells++
 
 				revealedPos = append(revealedPos, element.Pos)
 
@@ -59,5 +57,5 @@ func RevealedCells(startingPoint image.Point, matrix [][]*model.MineElement) (re
 		}
 	}
 
-	return
+	return revealedPos
 }

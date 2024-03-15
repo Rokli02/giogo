@@ -41,11 +41,6 @@ type MinesweeperCreateLobbyMenu struct {
 
 var _ ui.ApplicationCycles = (*MinesweeperCreateLobbyMenu)(nil)
 
-const (
-	private_host = "localhost"
-	public_host  = "0.0.0.0"
-)
-
 func NewMinesweeperCreateLobbyMenu(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string]) *MinesweeperCreateLobbyMenu {
 	m := &MinesweeperCreateLobbyMenu{
 		w:                 w,
@@ -113,8 +108,7 @@ func (m *MinesweeperCreateLobbyMenu) Close() {
 func (m *MinesweeperCreateLobbyMenu) Restart() {}
 
 func (m *MinesweeperCreateLobbyMenu) Layout(gtx layout.Context) layout.Dimensions {
-	res := m.handleEvents(&gtx)
-	if res, isLD := res.(layout.Dimensions); isLD {
+	if res, isLD := (m.handleEvents(&gtx)).(layout.Dimensions); isLD {
 		return res
 	}
 
@@ -176,9 +170,9 @@ func (m *MinesweeperCreateLobbyMenu) onClickStart() (res interface{}) {
 		return
 	}
 
-	var host string = private_host
+	var host string = server.Private_Host
 	if !m.isPrivateCheckbox.Value {
-		host = public_host
+		host = server.Public_Host
 	}
 
 	var playerLimit uint
