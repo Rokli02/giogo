@@ -10,6 +10,7 @@ import (
 	"giogo/ui/pages/scroller"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
+	"giogo/utils/cli"
 	"image"
 	"log"
 	"os"
@@ -45,14 +46,14 @@ func run(w *app.Window) error {
 
 	styles.InitializeStyles()
 	assets.InitializeAssets()
+	cli.InitializeState()
 	router := routerModule.NewRouter[ui.ApplicationCycles, string](w)
 	addRoutes(router, w)
 	router.Select(routerModule.MenuPage)
 
+	previousRouteKey := router.CurrentKey()
 	currentPage := router.CurrentRoute()
 	currentPage.Initialize()
-
-	previousRouteKey := router.CurrentKey()
 
 	for {
 		switch e := w.NextEvent().(type) {
@@ -81,7 +82,7 @@ func run(w *app.Window) error {
 
 func addRoutes(router *routerModule.Router[ui.ApplicationCycles, string], w *app.Window) {
 	singlePlayerMinesweeperEngine := engine.NewMinesweeperLocalEngine().SetAnimationDuration(time.Millisecond * 40)
-	singlePlayerMinesweeperEngine.Resize(8, 12, 12)
+	singlePlayerMinesweeperEngine.Resize(cli.Width, cli.Height, cli.Mines)
 
 	router.Add(routerModule.MenuPage, menu.NewMenu(w, router))
 	router.Add(routerModule.MinesweeperMenuPage, menu.NewMinesweeperMenu(w, router))
