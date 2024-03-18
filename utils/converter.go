@@ -84,3 +84,43 @@ func (byteConverter) BoolToByte(value bool) byte {
 func (byteConverter) BytesToBool(b []byte, fromIndex int) bool {
 	return b[fromIndex] == 1
 }
+
+func (byteConverter) StringArrayToBytes(sa []string) []byte {
+	individualStringSizes := make([]int, len(sa))
+	sizeOfS := 0
+	for i, s := range sa {
+		individualStringSizes[i] = len(s)
+		sizeOfS += len(s)
+	}
+
+	b := make([]byte, 0, sizeOfS+(len(individualStringSizes)+1)*4)
+	b = append(b, ByteConverter.IntToBytes(len(sa))...)
+
+	for i, size := range individualStringSizes {
+		b = append(b, ByteConverter.IntToBytes(size)...)
+		b = append(b, []byte(sa[i])...)
+	}
+
+	return b
+}
+
+func (byteConverter) BytesToStringArray(b []byte, fromIndex int) []string {
+	sliceSize := ByteConverter.BytesToInt(b, fromIndex)
+	fromIndex += 4
+
+	result := make([]string, 0, sliceSize)
+
+	for i := 0; i < sliceSize; i++ {
+		sizeOfString := ByteConverter.BytesToInt(b, fromIndex)
+		fromIndex += 4
+
+		if len(b) < sizeOfString {
+			break
+		}
+
+		result = append(result, string(b[fromIndex:fromIndex+sizeOfString]))
+		fromIndex += sizeOfString
+	}
+
+	return result
+}

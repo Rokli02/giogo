@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"giogo/utils"
+	"giogo/utils/cli"
 	"io"
 	"net/http"
 
@@ -31,7 +32,7 @@ func NewMinesweeperServerClient(host string, port uint) *MinesweeperServerClient
 
 func (msc *MinesweeperServerClient) Join() {
 	msc.ctx = context.Background()
-	connection, resp, err := websocket.Dial(msc.ctx, fmt.Sprintf("ws://%s:%d%s", msc.Host, msc.Port, websocket_action_path), nil)
+	connection, resp, err := websocket.Dial(msc.ctx, fmt.Sprintf("ws://%s:%d%s", msc.Host, msc.Port, websocket_action_path), &websocket.DialOptions{HTTPHeader: http.Header{"User-Name": []string{cli.Username}}})
 	if err != nil {
 		// resp.body-ban ott van a részletesebb indok
 		if resp != nil {

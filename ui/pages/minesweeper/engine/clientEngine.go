@@ -3,6 +3,7 @@ package engine
 import (
 	"fmt"
 	serverModule "giogo/server"
+	"giogo/server/models"
 	"giogo/utils"
 	"image"
 	"time"
@@ -23,11 +24,11 @@ type MinesweeperClientEngine struct {
 	revealed     uint16
 	marked       uint16
 	Client       *serverModule.MinesweeperServerClient
-	ServerStatus *serverModule.ServerStatus
+	ServerStatus *models.ServerStatus
 
 	mineChannel    chan model.MineElement
 	acks           chan uint8
-	serverToClient chan serverModule.SocketData
+	serverToClient chan models.SocketData
 	engineCommand  chan EngineCommand
 	mines          uint16
 	elementList    []*model.MineElement
@@ -40,7 +41,7 @@ func NewMinesweeperClientEngine(w *app.Window, host string, port uint) *Mineswee
 	m := &MinesweeperClientEngine{
 		w:            w,
 		state:        model.WAITING,
-		ServerStatus: &serverModule.ServerStatus{},
+		ServerStatus: &models.ServerStatus{},
 	}
 
 	m.Client = serverModule.NewMinesweeperServerClient(host, port)
@@ -53,7 +54,7 @@ func NewMinesweeperClientEngine(w *app.Window, host string, port uint) *Mineswee
 }
 
 func (m *MinesweeperClientEngine) Initialize() {
-	m.serverToClient = make(chan serverModule.SocketData)
+	m.serverToClient = make(chan models.SocketData)
 	m.Client.Join()
 
 	go func() {
@@ -71,10 +72,10 @@ func (m *MinesweeperClientEngine) Initialize() {
 				return
 			}
 
-			socketData := serverModule.SocketData{}
+			socketData := models.SocketData{}
 			socketData.FromBytes(readData)
 
-			if socketData.DataType == serverModule.SERVER_STATUS {
+			if socketData.DataType == models.SERVER_STATUS {
 				m.ServerStatus.FromBytes(socketData.Data, 0)
 
 				m.w.Invalidate()
@@ -94,7 +95,7 @@ func (m *MinesweeperClientEngine) Initialize() {
 			// fmt.Println("\tData content", socketData.Data)
 
 			switch socketData.DataType {
-			case serverModule.STATE:
+			case models.STATE:
 				state := model.MinesweeperState(socketData.Data[0])
 
 				switch state {
@@ -124,7 +125,7 @@ func (m *MinesweeperClientEngine) Initialize() {
 				}
 
 				m.state = state
-			case serverModule.END_OF_GAME:
+			case models.END_OF_GAME:
 				m.state = model.MinesweeperState(socketData.Data[0])
 				m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
 
@@ -144,7 +145,7 @@ func (m *MinesweeperClientEngine) Initialize() {
 				}
 
 				m.engineCommand <- AFTER_CLICK_LOSE
-			case serverModule.RESIZE:
+			case models.RESIZE:
 				m.state = model.MinesweeperState(socketData.Data[0])
 				m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
 				m.width = utils.ByteConverter.BytesToUint16(socketData.Data, 3)
@@ -153,12 +154,12 @@ func (m *MinesweeperClientEngine) Initialize() {
 				m.maxMines = m.mines
 
 				m.engineCommand <- RESIZE
-			case serverModule.RESTART:
+			case models.RESTART:
 				m.state = model.MinesweeperState(socketData.Data[0])
 				m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
 
 				m.engineCommand <- RESTART
-			case serverModule.POSITION:
+			case models.POSITION:
 				m.state = model.MinesweeperState(socketData.Data[0])
 				m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
 				element := utils.ByteConverter.BytesToMineElement(socketData.Data, 3)
@@ -166,7 +167,7 @@ func (m *MinesweeperClientEngine) Initialize() {
 				m.mineChannel <- element
 				<-m.acks
 				m.w.Invalidate()
-			case serverModule.UNKNOWN:
+			case models.UNKNOWN:
 				fmt.Println("Ismeretlen adattípus érkezett")
 			}
 		}
@@ -176,7 +177,7 @@ func (m *MinesweeperClientEngine) Initialize() {
 }
 
 func (m *MinesweeperClientEngine) Resize(width uint16, height uint16, mines uint16) {
-	socketData := serverModule.SocketData{DataType: serverModule.RESIZE}
+	socketData := models.SocketData{DataType: models.RESIZE}
 
 	socketData.Data = make([]byte, 0, 6)
 	socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(width)...)
@@ -187,7 +188,7 @@ func (m *MinesweeperClientEngine) Resize(width uint16, height uint16, mines uint
 }
 
 func (m *MinesweeperClientEngine) Restart() {
-	socketData := serverModule.SocketData{DataType: serverModule.RESTART}
+	socketData := models.SocketData{DataType: models.RESTART}
 
 	m.Client.WriteData(socketData.ToBytes())
 }
@@ -204,7 +205,7 @@ func (m *MinesweeperClientEngine) Close() {
 }
 
 func (m *MinesweeperClientEngine) OnButtonClick(pos image.Point, clickType pointer.Buttons) {
-	socketData := serverModule.SocketData{DataType: serverModule.POSITION}
+	socketData := models.SocketData{DataType: models.POSITION}
 
 	socketData.Data = make([]byte, 0, 9)
 	socketData.Data = append(socketData.Data, byte(clickType))

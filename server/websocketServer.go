@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"giogo/server/models"
 	"giogo/utils"
 	"net"
 	"net/http"
@@ -20,10 +21,10 @@ type MinesweeperServer struct {
 	host                string
 	port                uint
 	hostConnection      *websocket.Conn
-	connections         []*websocket.Conn
+	clients             []*models.ClientData
 	connectionsToRemove []*websocket.Conn
 	connectionMutext    sync.Mutex
-	clientToServer      chan ClientMessage
+	clientToServer      chan models.ClientMessage
 	healthCheckChan     chan uint8
 
 	engine *MinesweeperServerEngine
@@ -69,9 +70,9 @@ func (ms *MinesweeperServer) Open() {
 		Handler: mux,
 	}
 
-	ms.connections = make([]*websocket.Conn, 0, ms.ClientLimit)
+	ms.clients = make([]*models.ClientData, 0, ms.ClientLimit)
 	ms.connectionsToRemove = make([]*websocket.Conn, 0, ms.ClientLimit)
-	ms.clientToServer = make(chan ClientMessage)
+	ms.clientToServer = make(chan models.ClientMessage)
 
 	go ms.handleClientActions()
 
@@ -131,11 +132,11 @@ func (ms *MinesweeperServer) Open() {
 }
 
 func (ms *MinesweeperServer) Close() {
-	for _, connection := range ms.connections {
-		connection.Close(websocket.StatusNormalClosure, "Server is closing...")
+	for _, client := range ms.clients {
+		client.Conn.Close(websocket.StatusNormalClosure, "Server is closing...")
 	}
 
-	ms.connections = nil
+	ms.clients = nil
 
 	if ms.clientToServer != nil {
 		close(ms.clientToServer)
@@ -165,11 +166,11 @@ func (ms *MinesweeperServer) DisableJoin() {
 }
 
 func (ms *MinesweeperServer) statusRoute(w http.ResponseWriter, _ *http.Request) {
-	w.Write([]byte(fmt.Sprintf("%d/%d | Can join (%t)", len(ms.connections), ms.ClientLimit, ms.CanJoin)))
+	w.Write([]byte(fmt.Sprintf("%d/%d | Can join (%t)", len(ms.clients), ms.ClientLimit, ms.CanJoin)))
 }
 
 func (ms *MinesweeperServer) socketStatusRoute(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte{byte(len(ms.connections)), ms.ClientLimit, utils.ByteConverter.BoolToByte(ms.CanJoin)})
+	w.Write([]byte{byte(len(ms.clients)), ms.ClientLimit, utils.ByteConverter.BoolToByte(ms.CanJoin)})
 }
 
 func (ms *MinesweeperServer) healthCheckRoute(w http.ResponseWriter, r *http.Request) {
@@ -191,11 +192,11 @@ func (ms *MinesweeperServer) socketsRoute(w http.ResponseWriter, r *http.Request
 			break
 		}
 
-		message := ClientMessage{
-			connection: connection,
-			socketData: &SocketData{},
+		message := models.ClientMessage{
+			Connection: connection,
+			SocketData: &models.SocketData{},
 		}
-		message.socketData.FromBytes(data)
+		message.SocketData.FromBytes(data)
 
 		if ms.clientToServer != nil {
 			ms.clientToServer <- message
@@ -218,7 +219,7 @@ func (ms *MinesweeperServer) handleJoin(w *http.ResponseWriter, r *http.Request)
 		return nil
 	}
 
-	if len(ms.connections) >= int(ms.ClientLimit) {
+	if len(ms.clients) >= int(ms.ClientLimit) {
 		(*w).WriteHeader(http.StatusLocked)
 		(*w).Write([]byte("Server is full\n"))
 
@@ -234,14 +235,24 @@ func (ms *MinesweeperServer) handleJoin(w *http.ResponseWriter, r *http.Request)
 
 	fmt.Printf("%s joined to the lobby\n", r.RemoteAddr)
 
-	if len(ms.connections) == 0 {
+	if len(ms.clients) == 0 {
 		ms.hostConnection = connection
 	}
 
-	ms.connections = append(ms.connections, connection)
+	var username string = ""
+	if usernameHeader, hasHeader := r.Header["User-Name"]; hasHeader {
+		username = usernameHeader[0]
+	}
 
-	socketData := SocketData{DataType: SERVER_STATUS}
-	serverStatus := ServerStatus{Joined: len(ms.connections), Limit: int(ms.ClientLimit), CanJoin: ms.CanJoin}
+	ms.clients = append(ms.clients, &models.ClientData{Username: username, Conn: connection})
+
+	var usernames []string = make([]string, 0, len(ms.clients))
+	for _, client := range ms.clients {
+		usernames = append(usernames, client.Username)
+	}
+
+	socketData := models.SocketData{DataType: models.SERVER_STATUS}
+	serverStatus := models.ServerStatus{Joined: len(ms.clients), Limit: int(ms.ClientLimit), CanJoin: ms.CanJoin, PlayerNames: usernames}
 	socketData.Data = serverStatus.ToBytes()
 
 	ms.broadcastToClient(socketData)
@@ -251,7 +262,7 @@ func (ms *MinesweeperServer) handleJoin(w *http.ResponseWriter, r *http.Request)
 
 func (ms *MinesweeperServer) handleClientActions() {
 	for message := range ms.clientToServer {
-		data := *message.socketData
+		data := *message.SocketData
 		if len(ms.connectionsToRemove) > 0 {
 			for i := 0; i < len(ms.connectionsToRemove); i++ {
 				ms.connectionsToRemove[i] = nil
@@ -264,23 +275,23 @@ func (ms *MinesweeperServer) handleClientActions() {
 		fmt.Println("\tData content", data.Data)
 
 		switch data.DataType {
-		case TEXT:
+		case models.TEXT:
 			fmt.Printf("Message from client [%s]: ", data.DataType.ToString())
 			fmt.Println(string(data.Data))
 
 			ms.broadcastToClient(data)
-		case POSITION:
+		case models.POSITION:
 			clickType := pointer.Buttons(data.Data[0])
 			pos := utils.ByteConverter.BytesToPoint(data.Data, 1)
 
 			ms.engine.OnPositionAction(pos, clickType)
-		case RESIZE:
+		case models.RESIZE:
 			width := utils.ByteConverter.BytesToUint16(data.Data, 0)
 			height := utils.ByteConverter.BytesToUint16(data.Data, 2)
 			mines := utils.ByteConverter.BytesToUint16(data.Data, 4)
 
-			ms.engine.Resize(width, height, mines, message.connection == ms.hostConnection)
-		case RESTART:
+			ms.engine.Resize(width, height, mines, message.Connection == ms.hostConnection)
+		case models.RESTART:
 			// TODO: Feature: mind a 4 felhasználónak rá kell nyomnia a RESTART-ra, hogy ténylegesen újrakezdődjön
 			ms.engine.Restart()
 		}
@@ -307,8 +318,8 @@ func (ms *MinesweeperServer) removeConnection(connection *websocket.Conn) {
 
 	connectionIndex := -1
 
-	for i, sliceConnection := range ms.connections {
-		if sliceConnection != connection {
+	for i, sliceConnection := range ms.clients {
+		if sliceConnection.Conn != connection {
 			continue
 		}
 
@@ -317,7 +328,7 @@ func (ms *MinesweeperServer) removeConnection(connection *websocket.Conn) {
 		break
 	}
 
-	length := len(ms.connections)
+	length := len(ms.clients)
 	if length == 0 || connectionIndex == -1 {
 		fmt.Println("Couldn't remove client from slice")
 
@@ -325,29 +336,34 @@ func (ms *MinesweeperServer) removeConnection(connection *websocket.Conn) {
 	}
 
 	if length > 1 {
-		ms.connections[connectionIndex] = ms.connections[length-1]
-		ms.connections[length-1] = nil
+		ms.clients[connectionIndex] = ms.clients[length-1]
+		ms.clients[length-1] = nil
 	}
 
-	ms.connections = ms.connections[:length-1]
+	ms.clients = ms.clients[:length-1]
 
-	socketData := SocketData{DataType: SERVER_STATUS}
-	serverStatus := ServerStatus{Joined: len(ms.connections), Limit: int(ms.ClientLimit), CanJoin: ms.CanJoin}
+	var usernames []string = make([]string, 0, len(ms.clients))
+	for _, client := range ms.clients {
+		usernames = append(usernames, client.Username)
+	}
+
+	socketData := models.SocketData{DataType: models.SERVER_STATUS}
+	serverStatus := models.ServerStatus{Joined: len(ms.clients), Limit: int(ms.ClientLimit), CanJoin: ms.CanJoin, PlayerNames: usernames}
 	socketData.Data = serverStatus.ToBytes()
 
 	ms.broadcastToClient(socketData)
 }
 
-func (ms *MinesweeperServer) broadcastToClient(data SocketData) {
-	fmt.Printf("Broadcast %s type data with (%d byte long) to %d clients\n", data.DataType.ToString(), len(data.Data), len(ms.connections))
+func (ms *MinesweeperServer) broadcastToClient(data models.SocketData) {
+	fmt.Printf("Broadcast %s type data with (%d byte long) to %d clients\n", data.DataType.ToString(), len(data.Data), len(ms.clients))
 	fmt.Println("\tData content:", data.Data)
-	for _, connection := range ms.connections {
+	for _, client := range ms.clients {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
 
-		err := connection.Write(ctx, websocket.MessageBinary, data.ToBytes())
+		err := client.Conn.Write(ctx, websocket.MessageBinary, data.ToBytes())
 		cancel()
 		if err != nil {
-			ms.connectionsToRemove = append(ms.connectionsToRemove, connection)
+			ms.connectionsToRemove = append(ms.connectionsToRemove, client.Conn)
 
 			continue
 		}

@@ -22,12 +22,13 @@ import (
 )
 
 type MinesweeperLobby struct {
-	w         *app.Window
-	router    *routerModule.Router[ui.ApplicationCycles, string]
-	container *component.CentralizedContainer
-	footer    *component.CentralizedContainer
-	gameSize  image.Point
-	mines     uint16
+	w          *app.Window
+	router     *routerModule.Router[ui.ApplicationCycles, string]
+	container  *component.CentralizedContainer
+	footer     *component.CentralizedContainer
+	playerList layout.List
+	gameSize   image.Point
+	mines      uint16
 
 	server       *server.MinesweeperServer
 	clientEngine *engine.MinesweeperClientEngine
@@ -50,6 +51,7 @@ func NewMinesweeperLobby(w *app.Window, router *routerModule.Router[ui.Applicati
 		clientEngine: clientEngine,
 		container:    component.NewCentralizedContainer(false, true),
 		footer:       component.NewCentralizedContainer(true, false),
+		playerList:   layout.List{Axis: layout.Vertical, Alignment: layout.Baseline},
 		minePage:     minesweeper.NewMinefield(w, router, 20).SetEngine(clientEngine),
 	}
 
@@ -135,8 +137,13 @@ func (m *MinesweeperLobby) Layout(gtx layout.Context) layout.Dimensions {
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return m.container.Layout(gtx,
 				layout.Rigid(layout.Spacer{Height: 16}.Layout),
-				layout.Rigid(material.Label(styles.MaterialTheme, styles.MaterialTheme.TextSize, "Lobby").Layout),
+				layout.Rigid(material.Label(styles.MaterialTheme, unit.Sp(20), "Lobby").Layout),
 				layout.Rigid(layout.Spacer{Height: 16}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return m.playerList.Layout(gtx, len(m.clientEngine.ServerStatus.PlayerNames), func(gtx layout.Context, index int) layout.Dimensions {
+						return material.Label(styles.MaterialTheme, unit.Sp(14), m.clientEngine.ServerStatus.PlayerNames[index]).Layout(gtx)
+					})
+				}),
 				layout.Flexed(1, layout.Spacer{}.Layout),
 				layout.Rigid(layout.Spacer{Height: 16}.Layout),
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {

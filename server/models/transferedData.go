@@ -1,10 +1,4 @@
-package server
-
-import (
-	"giogo/utils"
-
-	"nhooyr.io/websocket"
-)
+package models
 
 type DataType byte
 
@@ -76,31 +70,4 @@ func (d *SocketData) FromBytes(bytes []byte) {
 
 	d.DataType = DataType(bytes[0])
 	d.Data = bytes[1:]
-}
-
-type ClientMessage struct {
-	connection *websocket.Conn
-	socketData *SocketData
-}
-
-type ServerStatus struct {
-	Joined  int
-	Limit   int
-	CanJoin bool
-}
-
-func (s *ServerStatus) ToBytes() []byte {
-	b := make([]byte, 0, 9)
-
-	b = append(b, utils.ByteConverter.IntToBytes(s.Joined)...)
-	b = append(b, utils.ByteConverter.IntToBytes(s.Limit)...)
-	b = append(b, utils.ByteConverter.BoolToByte(s.CanJoin))
-
-	return b
-}
-
-func (s *ServerStatus) FromBytes(b []byte, fromIndex int) {
-	s.Joined = utils.ByteConverter.BytesToInt(b, fromIndex)
-	s.Limit = utils.ByteConverter.BytesToInt(b, fromIndex+4)
-	s.CanJoin = utils.ByteConverter.BytesToBool(b, fromIndex+8)
 }
