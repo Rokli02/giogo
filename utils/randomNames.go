@@ -2,37 +2,13 @@ package utils
 
 import (
 	"fmt"
+	"giogo/assets"
 	"math/rand"
 )
 
-var firstnames = []string{
-	"Rigó",
-	"Erős",
-	"Vajonőr",
-	"Cikáyn",
-	"Tompoló",
-	"Mikorka",
-	"Buzi",
-	"Galambos",
-	"Techno",
-	"Dundi",
-	"Kokkeró",
-	"ZéTéNy",
-}
-
-var lastnames = []string{
-	"Kálmán",
-	"Jancsi",
-	"Galambfos",
-	"Pepe",
-	"Gregory",
-	"Wise Mystical Tree",
-	"Lacatusu",
-}
-
 func GenerateRandomName() string {
-	firstnameIndex := rand.Int31n(int32(len(firstnames)))
-	lastnameIndex := rand.Int31n(int32(len(lastnames)))
+	firstnameIndex := rand.Int31n(int32(len(assets.NameConfig.Firstnames)))
+	lastnameIndex := rand.Int31n(int32(len(assets.NameConfig.Lastnames)))
 
-	return fmt.Sprintf("%s %s", firstnames[firstnameIndex], lastnames[lastnameIndex])
+	return fmt.Sprintf("%s %s", assets.NameConfig.Firstnames[firstnameIndex], assets.NameConfig.Lastnames[lastnameIndex])
 }

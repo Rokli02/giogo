@@ -44,8 +44,8 @@ func main() {
 func run(w *app.Window) error {
 	var ops op.Ops
 
-	styles.InitializeStyles()
 	assets.InitializeAssets()
+	styles.InitializeStyles()
 	cli.InitializeState()
 	router := routerModule.NewRouter[ui.ApplicationCycles, string](w)
 	addRoutes(router, w)
