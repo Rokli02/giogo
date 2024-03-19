@@ -19,6 +19,7 @@ import (
 	"giogo/ui/pages/minesweeper/model"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
+	"giogo/utils/cli"
 )
 
 type MinesweeperLobby struct {
@@ -35,6 +36,7 @@ type MinesweeperLobby struct {
 
 	startClickable widget.Clickable
 	exitClickable  widget.Clickable
+	usernameLbl    material.LabelStyle
 
 	minePage *minesweeper.MineField
 }
@@ -52,11 +54,14 @@ func NewMinesweeperLobby(w *app.Window, router *routerModule.Router[ui.Applicati
 		container:    component.NewCentralizedContainer(false, true),
 		footer:       component.NewCentralizedContainer(true, false),
 		playerList:   layout.List{Axis: layout.Vertical, Alignment: layout.Baseline},
+		usernameLbl:  material.Label(styles.MaterialTheme, unit.Sp(10), cli.Username),
 		minePage:     minesweeper.NewMinefield(w, router, 20).SetEngine(clientEngine),
 	}
 
 	m.footer.Container.Alignment = layout.Middle
 	m.footer.Container.Axis = layout.Horizontal
+
+	m.usernameLbl.Color = styles.HEADER_BACKGROUND
 
 	return m
 }
@@ -106,7 +111,6 @@ func (m *MinesweeperLobby) Layout(gtx layout.Context) layout.Dimensions {
 
 	m.handleEvents(&gtx)
 
-	// TODO: Felhasználók név hozzáfűzése és azok megjelenítése
 	return layout.Stack{}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Min = image.Point{}
@@ -128,7 +132,7 @@ func (m *MinesweeperLobby) Layout(gtx layout.Context) layout.Dimensions {
 			labelDim := material.Label(styles.MaterialTheme, unit.Sp(12), fmt.Sprintf("%d/%d", m.clientEngine.ServerStatus.Joined, m.clientEngine.ServerStatus.Limit)).Layout(gtx)
 			labelCallOp := macro.Stop()
 
-			op.Offset(image.Point{4, 4}).Add(gtx.Ops)
+			op.Offset(image.Point{gtx.Constraints.Max.X - labelDim.Size.X - 4, 4}).Add(gtx.Ops)
 
 			labelCallOp.Add(gtx.Ops)
 
@@ -153,6 +157,13 @@ func (m *MinesweeperLobby) Layout(gtx layout.Context) layout.Dimensions {
 				}),
 				layout.Rigid(layout.Spacer{Height: 16}.Layout),
 			)
+		}),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Point{}
+
+			op.Offset(image.Point{4, 2}).Add(gtx.Ops)
+
+			return m.usernameLbl.Layout(gtx)
 		}),
 	)
 }

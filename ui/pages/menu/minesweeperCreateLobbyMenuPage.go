@@ -8,6 +8,7 @@ import (
 	"giogo/ui/pages/minesweeper/engine"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
+	"giogo/utils/cli"
 	"image"
 
 	"gioui.org/app"
@@ -32,6 +33,7 @@ type MinesweeperCreateLobbyMenu struct {
 	startClickable    widget.Clickable
 	isPrivateCheckbox widget.Bool
 	portEditor        widget.Editor
+	usernameLbl       material.LabelStyle
 
 	playerLimitInput *component.Input
 	gameWidthInput   *component.Input
@@ -48,6 +50,7 @@ func NewMinesweeperCreateLobbyMenu(w *app.Window, router *routerModule.Router[ui
 		container:         component.NewCentralizedContainer(false, true),
 		footer:            component.NewCentralizedContainer(true, false),
 		isPrivateCheckbox: widget.Bool{Value: true},
+		usernameLbl:       material.Label(styles.MaterialTheme, unit.Sp(10), cli.Username),
 	}
 
 	m.footer.Container.Axis = layout.Horizontal
@@ -78,6 +81,8 @@ func NewMinesweeperCreateLobbyMenu(w *app.Window, router *routerModule.Router[ui
 	m.gameMinesInput.Editor.Editor.InputHint = key.HintNumeric
 	m.gameMinesInput.Editor.Editor.Filter = "0123456789"
 	m.gameMinesInput.Editor.Editor.MaxLen = 5
+
+	m.usernameLbl.Color = styles.HEADER_BACKGROUND
 
 	return m
 }
@@ -112,39 +117,50 @@ func (m *MinesweeperCreateLobbyMenu) Layout(gtx layout.Context) layout.Dimension
 		return res
 	}
 
-	return m.container.Layout(gtx,
-		layout.Rigid(layout.Spacer{Height: 16}.Layout),
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			gtx.Constraints.Max.X = 150
+	return layout.Stack{}.Layout(gtx,
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			return m.container.Layout(gtx,
+				layout.Rigid(layout.Spacer{Height: 16}.Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.X = 150
 
-			macro := op.Record(gtx.Ops)
-			editorDim := material.Editor(styles.MaterialTheme, &m.portEditor, "Port").Layout(gtx)
-			recordCallOp := macro.Stop()
+					macro := op.Record(gtx.Ops)
+					editorDim := material.Editor(styles.MaterialTheme, &m.portEditor, "Port").Layout(gtx)
+					recordCallOp := macro.Stop()
 
-			editorDim.Size.X += 16
-			editorDim.Size.Y += 16
+					editorDim.Size.X += 16
+					editorDim.Size.Y += 16
 
-			gtx.Constraints.Max = editorDim.Size
-			paint.FillShape(gtx.Ops, styles.HEADER_BACKGROUND, clip.Rect{Max: gtx.Constraints.Max}.Op())
-			defer op.Offset(image.Point{8, 8}).Push(gtx.Ops).Pop()
+					gtx.Constraints.Max = editorDim.Size
+					paint.FillShape(gtx.Ops, styles.HEADER_BACKGROUND, clip.Rect{Max: gtx.Constraints.Max}.Op())
+					defer op.Offset(image.Point{8, 8}).Push(gtx.Ops).Pop()
 
-			recordCallOp.Add(gtx.Ops)
+					recordCallOp.Add(gtx.Ops)
 
-			return editorDim
+					return editorDim
+				}),
+				layout.Rigid(layout.Spacer{Height: 6}.Layout),
+				layout.Rigid(material.CheckBox(styles.MaterialTheme, &m.isPrivateCheckbox, "Privát lobby").Layout),
+				layout.Rigid(layout.Spacer{Height: 6}.Layout),
+				layout.Rigid(m.playerLimitInput.Layout),
+				layout.Rigid(layout.Spacer{Height: 6}.Layout),
+				layout.Rigid(m.gameWidthInput.Layout),
+				layout.Rigid(layout.Spacer{Height: 6}.Layout),
+				layout.Rigid(m.gameHeigthInput.Layout),
+				layout.Rigid(layout.Spacer{Height: 6}.Layout),
+				layout.Rigid(m.gameMinesInput.Layout),
+				layout.Flexed(1, layout.Spacer{}.Layout),
+				layout.Rigid(m.layoutFooter),
+				layout.Rigid(layout.Spacer{Height: 16}.Layout),
+			)
 		}),
-		layout.Rigid(layout.Spacer{Height: 6}.Layout),
-		layout.Rigid(material.CheckBox(styles.MaterialTheme, &m.isPrivateCheckbox, "Privát lobby").Layout),
-		layout.Rigid(layout.Spacer{Height: 6}.Layout),
-		layout.Rigid(m.playerLimitInput.Layout),
-		layout.Rigid(layout.Spacer{Height: 6}.Layout),
-		layout.Rigid(m.gameWidthInput.Layout),
-		layout.Rigid(layout.Spacer{Height: 6}.Layout),
-		layout.Rigid(m.gameHeigthInput.Layout),
-		layout.Rigid(layout.Spacer{Height: 6}.Layout),
-		layout.Rigid(m.gameMinesInput.Layout),
-		layout.Flexed(1, layout.Spacer{}.Layout),
-		layout.Rigid(m.layoutFooter),
-		layout.Rigid(layout.Spacer{Height: 16}.Layout),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Point{}
+
+			op.Offset(image.Point{4, 2}).Add(gtx.Ops)
+
+			return m.usernameLbl.Layout(gtx)
+		}),
 	)
 }
 

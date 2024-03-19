@@ -9,6 +9,7 @@ import (
 	"giogo/ui/pages/minesweeper/engine"
 	routerModule "giogo/ui/router"
 	"giogo/ui/styles"
+	"giogo/utils/cli"
 	"image"
 	"strconv"
 	"strings"
@@ -31,8 +32,7 @@ type MinesweeperMultiplayerMenu struct {
 	w         *app.Window
 	router    *routerModule.Router[ui.ApplicationCycles, string]
 	container *component.CentralizedContainer
-	// socketReader chan []byte
-	client *server.MinesweeperServerClient
+	client    *server.MinesweeperServerClient
 
 	loadingStart                time.Time
 	isJoinableServerFound       bool
@@ -42,6 +42,7 @@ type MinesweeperMultiplayerMenu struct {
 	joinClickable widget.Clickable
 	hostClickable widget.Clickable
 	backClickable widget.Clickable
+	usernameLbl   material.LabelStyle
 }
 
 var _ ui.ApplicationCycles = (*MinesweeperMultiplayerMenu)(nil)
@@ -50,11 +51,12 @@ const stateMarkMargin = 4
 
 func NewMinesweeperMultiplayerMenu(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string]) *MinesweeperMultiplayerMenu {
 	m := &MinesweeperMultiplayerMenu{
-		w:          w,
-		router:     router,
-		container:  component.NewCentralizedContainer(false, true),
-		client:     server.NewMinesweeperServerClient("", 0), // localhost:4222
-		joinEditor: widget.Editor{Alignment: text.Start, SingleLine: true, MaxLen: 128, Submit: true},
+		w:           w,
+		router:      router,
+		container:   component.NewCentralizedContainer(false, true),
+		client:      server.NewMinesweeperServerClient("", 0), // localhost:4222
+		joinEditor:  widget.Editor{Alignment: text.Start, SingleLine: true, MaxLen: 128, Submit: true},
+		usernameLbl: material.Label(styles.MaterialTheme, unit.Sp(10), cli.Username),
 	}
 
 	m.joinEditor.Alignment = text.Middle
@@ -62,6 +64,8 @@ func NewMinesweeperMultiplayerMenu(w *app.Window, router *routerModule.Router[ui
 	m.client.OnClosedConnection = func() {
 		m.router.GoBack()
 	}
+
+	m.usernameLbl.Color = styles.HEADER_BACKGROUND
 
 	return m
 }
@@ -111,7 +115,6 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 		return layout.Dimensions{}
 	}
 
-	// TODO: Részletezze miért nem tudott csatlakozni
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			return m.container.Layout(gtx,
@@ -152,6 +155,13 @@ func (m *MinesweeperMultiplayerMenu) Layout(gtx layout.Context) layout.Dimension
 			)
 		}),
 		layout.Expanded(m.drawStackedStatus),
+		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			gtx.Constraints.Min = image.Point{}
+
+			op.Offset(image.Point{4, 2}).Add(gtx.Ops)
+
+			return m.usernameLbl.Layout(gtx)
+		}),
 	)
 }
 
