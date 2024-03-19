@@ -18,3 +18,8 @@
 ### Paraméterek
   Lehetőség van induláskor paraméterek megadására, amivel tudjuk állítani milyen __nehézségü__ legyen a játék,
   valamint **név beállítás**ára, amit Lobby-ba csatlakozáskor láthatunk
+
+  -u, --username: Felhasználónév beállítása
+  -w, --width:    Egyjátékos mód pályának a szélessége
+  -h, --height:   Egyjátékos mód pályának a magassága
+  -m, --mines:    Egyjátékos mód pályának az aknák száma
