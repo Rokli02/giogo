@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Status</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      --primary-letter-color: 255, 255, 255
+    }
+
+    body {
+      margin: auto;
+      padding: auto;
+    }
+
+    .container {
+      margin: auto;
+      position: relative;
+      display: flex;
+      justify-content: baseline;
+      align-items: center;
+      flex-direction: column;
+      width: 100%;
+      height: 100dvh;
+      background-color: rgb(21, 21, 21);
+    }
+
+    .container * {
+      text-align: center;
+      color: rgb(var(--primary-letter-color));
+    }
+
+    .container hr {
+      background-image: radial-gradient(rgb(var(--primary-letter-color)) 50%, rgba(var(--primary-letter-color), 0) 80%);
+      border: none;
+    }
+
+    .w25pc {
+      width: 25%;
+      height: 1px;
+    }
+
+    .w50pc {
+      width: 50%;
+      height: 2px;
+    }
+
+    .w75pc {
+      width: 75%;
+      height: 2px;
+    }
+
+    .container ul {
+      margin-inline: 0px;
+      padding-inline: 0px;
+      text-decoration: none;
+      list-style: none;
+    }
+
+    .container ul li {
+      padding-inline: 0px;
+      margin-inline: 0px;
+      text-indent: 0px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Szerver státusz</h1>
+    <hr class="w25pc" />
+    <h3>{{.Joined}}/{{.Limit}} - {{if .CanJoin}} Játékosra vár {{else}} Játékban {{end}}</h3>
+    <hr class="w75pc" />
+    <h2>Playerek a lobbyban</h2>
+    <hr class="w25pc" />
+    <ul>
+      {{range .PlayerNames}}
+      <li><h3>{{.}}</h3></li>
+      {{end}}
+    </ul>
+  </div>
+</body>
+</html>

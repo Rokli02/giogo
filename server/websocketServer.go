@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"giogo/server/models"
 	"giogo/utils"
+	"html/template"
 	"net"
 	"net/http"
 	"strings"
@@ -166,7 +167,28 @@ func (ms *MinesweeperServer) DisableJoin() {
 }
 
 func (ms *MinesweeperServer) statusRoute(w http.ResponseWriter, _ *http.Request) {
-	w.Write([]byte(fmt.Sprintf("%d/%d | Can join (%t)", len(ms.clients), ms.ClientLimit, ms.CanJoin)))
+	tmpl, err := template.ParseFiles("./assets/template/socket_status.html")
+	if err != nil {
+		w.Write([]byte(fmt.Sprintf("%d/%d | Can join (%t)", len(ms.clients), ms.ClientLimit, ms.CanJoin)))
+	}
+
+	templateData := struct {
+		Joined      int
+		Limit       uint8
+		CanJoin     bool
+		PlayerNames []string
+	}{
+		Joined:      len(ms.clients),
+		Limit:       ms.ClientLimit,
+		CanJoin:     ms.CanJoin,
+		PlayerNames: make([]string, 0, len(ms.clients)),
+	}
+
+	for _, client := range ms.clients {
+		templateData.PlayerNames = append(templateData.PlayerNames, client.Username)
+	}
+
+	tmpl.Execute(w, templateData)
 }
 
 func (ms *MinesweeperServer) socketStatusRoute(w http.ResponseWriter, r *http.Request) {
