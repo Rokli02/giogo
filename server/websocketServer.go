@@ -42,7 +42,7 @@ func NewMinesweeperServer(host string, port uint, clientLimit uint8) *Minesweepe
 	}
 
 	ms.engine = NewMinesweeperServerEngine(ms.broadcastToClient)
-	ms.engine.SetAnimationDuration(time.Millisecond * 40)
+	ms.engine.SetAnimationDuration(time.Millisecond * 0)
 
 	return ms
 }

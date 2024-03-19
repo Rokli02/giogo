@@ -215,7 +215,7 @@ func (m *MinesweeperCreateLobbyMenu) onClickStart() (res interface{}) {
 	}
 
 	var mines uint16
-	fmt.Sscanf(m.gameHeigthInput.Editor.Editor.Text(), "%d", &mines)
+	fmt.Sscanf(m.gameMinesInput.Editor.Editor.Text(), "%d", &mines)
 	if mines == 0 {
 		mines = 10
 

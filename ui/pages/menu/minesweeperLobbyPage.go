@@ -90,9 +90,11 @@ func (m *MinesweeperLobby) Restart() {
 }
 
 func (m *MinesweeperLobby) Close() {
-	m.w.Option(func(_ unit.Metric, c *app.Config) {
-		styles.MenuWindowSizes = c.Size
-	})
+	if m.clientEngine.GetState() == model.WAITING {
+		m.w.Option(func(_ unit.Metric, c *app.Config) {
+			styles.MenuWindowSizes = c.Size
+		})
+	}
 
 	m.router.Remove(routerModule.MinesweeperLobbyPage)
 	m.clientEngine.Close()

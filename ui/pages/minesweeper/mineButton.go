@@ -70,7 +70,7 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 	paint.ColorOp{Color: baseColor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	if state == model.WIN && mb.Value == -1 {
+	if (state == model.WIN && mb.Value == -1) || mb.Marked {
 		drawMarkedCell(gtx, mb.Size)
 
 		return
@@ -81,59 +81,45 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 			mb.registerEvents(gtx.Ops)
 		}
 
+		drawHiddenCell(gtx, mb.Size)
+
+		return
+	}
+	paint.FillShape(gtx.Ops, borderColor, clip.Stroke{Path: clip.Rect{Max: mb.Size}.Path(), Width: 2}.Op())
+
+	switch mb.Value {
+	case 0:
+		if !mb.Marked {
+			return
+		}
+
+		drawMissMarkedCell(gtx, mb.Size)
+	case -1:
+		drawMineCell(gtx, mb.Size)
+	default:
 		if mb.Marked {
-			drawMarkedCell(gtx, mb.Size)
+			drawMissMarkedCell(gtx, mb.Size)
 
 			return
 		}
 
-		drawHiddenCell(gtx, mb.Size)
-	} else {
-		paint.FillShape(gtx.Ops, borderColor, clip.Stroke{Path: clip.Rect{Max: mb.Size}.Path(), Width: 2}.Op())
+		fontSize := unit.Sp(mb.Size.Y / 2)
+		offsetPoint := image.Pt(mb.Size.X/3, mb.Size.Y/5-1)
 
-		switch mb.Value {
-		// Üres mező -> semmi
-		case 0:
-			if mb.Marked {
-				drawMissMarkedCell(gtx, mb.Size)
+		textOffsetStack := op.Offset(offsetPoint).Push(gtx.Ops)
+		textShadow := material.Label(styles.MaterialTheme, fontSize+2, fmt.Sprint(mb.Value))
+		textShadow.Color = styles.TEXT_SHADOW
+		textShadow.Font.Weight = font.Bold
+		textShadow.Layout(*gtx)
+		textOffsetStack.Pop()
 
-				return
-			}
-		// Bomba
-		case -1:
-			if mb.Marked {
-				drawMarkedCell(gtx, mb.Size)
-
-				return
-			}
-
-			drawMineCell(gtx, mb.Size)
-		// Számos mező
-		default:
-			if mb.Marked {
-				drawMissMarkedCell(gtx, mb.Size)
-
-				return
-			}
-
-			fontSize := unit.Sp(mb.Size.Y / 2)
-			offsetPoint := image.Pt(mb.Size.X/3, mb.Size.Y/5-1)
-
-			textOffsetStack := op.Offset(offsetPoint).Push(gtx.Ops)
-			textShadow := material.Label(styles.MaterialTheme, fontSize+2, fmt.Sprint(mb.Value))
-			textShadow.Color = styles.TEXT_SHADOW
-			textShadow.Font.Weight = font.Bold
-			textShadow.Layout(*gtx)
-			textOffsetStack.Pop()
-
-			offsetPoint.X += 1
-			offsetPoint.Y += 1
-			textOffsetStack = op.Offset(offsetPoint).Push(gtx.Ops)
-			textContent := material.Label(styles.MaterialTheme, fontSize, fmt.Sprint(mb.Value))
-			textContent.Color = mb.getColorOfValue()
-			textContent.Layout(*gtx)
-			textOffsetStack.Pop()
-		}
+		offsetPoint.X += 1
+		offsetPoint.Y += 1
+		textOffsetStack = op.Offset(offsetPoint).Push(gtx.Ops)
+		textContent := material.Label(styles.MaterialTheme, fontSize, fmt.Sprint(mb.Value))
+		textContent.Color = mb.getColorOfValue()
+		textContent.Layout(*gtx)
+		textOffsetStack.Pop()
 	}
 }
 

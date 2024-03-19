@@ -38,7 +38,7 @@ func NewMinesweeperLocalEngine() *MinesweeperLocalEngine {
 	return me
 }
 
-func (me *MinesweeperLocalEngine) Resize(width uint16, height uint16, mines uint16) {
+func (me *MinesweeperLocalEngine) Resize(width, height, mines uint16) {
 	me.width = width
 	me.height = height
 
@@ -126,7 +126,9 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 					element := me.matrix[revealedCell.Y][revealedCell.X]
 
 					me.mineChannel <- *element
-					time.Sleep(me.animationDuration)
+					if me.animationDuration != 0 {
+						time.Sleep(me.animationDuration)
+					}
 					<-me.acks
 				}
 

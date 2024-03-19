@@ -13,20 +13,36 @@ import (
 	"gioui.org/op/paint"
 )
 
+var markedCellOps *op.Ops
+var markedCellOpsCall op.CallOp
+
 func drawMarkedCell(gtx *layout.Context, size image.Point) {
-	drawHiddenCell(gtx, size)
+	if markedCellOps != nil {
+		markedCellOpsCall.Add(gtx.Ops)
 
-	tmpGtx := gtx.Constraints
-	gtx.Constraints.Max.X = gtx.Constraints.Max.X - (int(shadowThicknes) << 1)
-	gtx.Constraints.Max.Y = gtx.Constraints.Max.Y - (int(shadowThicknes) << 1)
+		return
+	}
 
-	defer op.Offset(image.Point{X: int(shadowThicknes), Y: int(shadowThicknes)}).Push(gtx.Ops).Pop()
+	markedCellOps = new(op.Ops)
+	localGtx := *gtx
+	localGtx.Ops = markedCellOps
+
+	macro := op.Record(markedCellOps)
+	drawHiddenCell(&localGtx, size)
+
+	tmpGtx := localGtx.Constraints
+	localGtx.Constraints.Max.X = localGtx.Constraints.Max.X - (int(shadowThicknes) << 1)
+	localGtx.Constraints.Max.Y = localGtx.Constraints.Max.Y - (int(shadowThicknes) << 1)
+
+	op.Offset(image.Point{X: int(shadowThicknes), Y: int(shadowThicknes)}).Add(markedCellOps)
 
 	markedField := assets.GetWidgetImage("marked", size.X)
 	markedField.Position = layout.Center
-	markedField.Layout(*gtx)
+	markedField.Layout(localGtx)
 
-	gtx.Constraints = tmpGtx
+	localGtx.Constraints = tmpGtx
+	markedCellOpsCall = macro.Stop()
+	markedCellOpsCall.Add(gtx.Ops)
 }
 
 func drawMineCell(gtx *layout.Context, size image.Point) {
@@ -41,13 +57,22 @@ func drawMissMarkedCell(gtx *layout.Context, size image.Point) {
 	drawBigRedX(gtx, 2)
 }
 
-var hiddenCellOps = new(op.Ops)
+var hiddenCellOps *op.Ops
+var hiddenCellOpsCall op.CallOp
 
 func drawHiddenCell(gtx *layout.Context, size image.Point) {
+	if hiddenCellOps != nil {
+		hiddenCellOpsCall.Add(gtx.Ops)
+
+		return
+	}
+
+	hiddenCellOps = new(op.Ops)
+
 	macro := op.Record(hiddenCellOps)
 
 	shine := clip.Path{}
-	shine.Begin(gtx.Ops)
+	shine.Begin(hiddenCellOps)
 	shine.MoveTo(f32.Pt(float32(0), float32(size.Y)))
 	shine.LineTo(f32.Pt(0, 0))
 	shine.LineTo(f32.Pt(float32(size.X), 0))
@@ -56,10 +81,10 @@ func drawHiddenCell(gtx *layout.Context, size image.Point) {
 	shine.LineTo(f32.Pt(shadowThicknes, float32(size.Y)-shadowThicknes))
 	shine.Close()
 
-	paint.FillShape(gtx.Ops, shineColor, clip.Outline{Path: shine.End()}.Op())
+	paint.FillShape(hiddenCellOps, shineColor, clip.Outline{Path: shine.End()}.Op())
 
 	shadow := clip.Path{}
-	shadow.Begin(gtx.Ops)
+	shadow.Begin(hiddenCellOps)
 	shadow.MoveTo(f32.Pt(float32(0), float32(size.Y)))
 	shadow.LineTo(f32.Pt(float32(size.X), float32(size.Y)))
 	shadow.LineTo(f32.Pt(float32(size.X), 0))
@@ -68,9 +93,10 @@ func drawHiddenCell(gtx *layout.Context, size image.Point) {
 	shadow.LineTo(f32.Pt(shadowThicknes, float32(size.Y)-shadowThicknes))
 	shadow.Close()
 
-	paint.FillShape(gtx.Ops, shadowColor, clip.Outline{Path: shadow.End()}.Op())
+	paint.FillShape(hiddenCellOps, shadowColor, clip.Outline{Path: shadow.End()}.Op())
 
-	macro.Stop().Add(gtx.Ops)
+	hiddenCellOpsCall = macro.Stop()
+	hiddenCellOpsCall.Add(gtx.Ops)
 }
 
 func drawBigRedX(gtx *layout.Context, weigth int) layout.Dimensions {
@@ -101,9 +127,17 @@ func drawBigRedX(gtx *layout.Context, weigth int) layout.Dimensions {
 	return layout.Dimensions{Size: utils.GetSize(gtx)}
 }
 
-var neutralFaceCache = new(op.Ops)
+var neutralFaceCache *op.Ops
+var neutralFaceCallOp op.CallOp
 
 func drawNeutralFace(gtx *layout.Context) {
+	if neutralFaceCache != nil {
+		neutralFaceCallOp.Add(gtx.Ops)
+
+		return
+	}
+
+	neutralFaceCache = new(op.Ops)
 	macro := op.Record(neutralFaceCache)
 
 	middlePoint := image.Point{X: gtx.Constraints.Max.X >> 1, Y: gtx.Constraints.Max.Y >> 1}
@@ -114,7 +148,7 @@ func drawNeutralFace(gtx *layout.Context) {
 
 	// Left eye
 	paint.FillShape(
-		gtx.Ops,
+		neutralFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Ellipse{
 			Min: image.Point{
@@ -125,12 +159,12 @@ func drawNeutralFace(gtx *layout.Context) {
 				X: middlePoint.X - eyeOffset.X + eyeSize,
 				Y: middlePoint.Y - eyeOffset.Y + eyeSize,
 			},
-		}.Op(gtx.Ops),
+		}.Op(neutralFaceCache),
 	)
 
 	// Right eye
 	paint.FillShape(
-		gtx.Ops,
+		neutralFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Ellipse{
 			Min: image.Point{
@@ -141,12 +175,12 @@ func drawNeutralFace(gtx *layout.Context) {
 				X: middlePoint.X + eyeOffset.X + eyeSize,
 				Y: middlePoint.Y - eyeOffset.Y + eyeSize,
 			},
-		}.Op(gtx.Ops),
+		}.Op(neutralFaceCache),
 	)
 
 	// Mouth
 	paint.FillShape(
-		gtx.Ops,
+		neutralFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Rect{
 			Min: image.Point{
@@ -160,12 +194,21 @@ func drawNeutralFace(gtx *layout.Context) {
 		}.Op(),
 	)
 
-	macro.Stop().Add(gtx.Ops)
+	neutralFaceCallOp = macro.Stop()
+	neutralFaceCallOp.Add(gtx.Ops)
 }
 
-var madFaceCache = new(op.Ops)
+var madFaceCache *op.Ops
+var madFaceCallOp op.CallOp
 
 func drawMadFace(gtx *layout.Context) {
+	if madFaceCache != nil {
+		madFaceCallOp.Add(gtx.Ops)
+
+		return
+	}
+
+	madFaceCache = new(op.Ops)
 	macro := op.Record(madFaceCache)
 
 	middlePoint := image.Point{X: gtx.Constraints.Max.X >> 1, Y: gtx.Constraints.Max.Y >> 1}
@@ -182,7 +225,7 @@ func drawMadFace(gtx *layout.Context) {
 
 	// Left eye
 	paint.FillShape(
-		gtx.Ops,
+		madFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Ellipse{
 			Min: image.Point{
@@ -193,12 +236,12 @@ func drawMadFace(gtx *layout.Context) {
 				X: middlePoint.X - eyeOffset.X + eyeSize,
 				Y: middlePoint.Y - eyeOffset.Y + eyeSize,
 			},
-		}.Op(gtx.Ops),
+		}.Op(madFaceCache),
 	)
 
 	// Left Eyebrow
 	leftEyebrowPath := clip.Path{}
-	leftEyebrowPath.Begin(gtx.Ops)
+	leftEyebrowPath.Begin(madFaceCache)
 	leftEyebrowPath.MoveTo(f32.Pt(float32(middlePoint.X-eyeOffset.X-(eyebrowWidth>>1)), float32(middlePoint.Y-eyeOffset.Y-eyebrowOffset)))
 	leftEyebrowPath.Line(f32.Pt(eyebrowWidth, eyebrowOffset))
 	leftEyebrowPath.Line(f32.Pt(0, -eyebrowSize))
@@ -206,14 +249,14 @@ func drawMadFace(gtx *layout.Context) {
 	leftEyebrowPath.Close()
 
 	paint.FillShape(
-		gtx.Ops,
+		madFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Outline{Path: leftEyebrowPath.End()}.Op(),
 	)
 
 	// Right eye
 	paint.FillShape(
-		gtx.Ops,
+		madFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Ellipse{
 			Min: image.Point{
@@ -224,12 +267,12 @@ func drawMadFace(gtx *layout.Context) {
 				X: middlePoint.X + eyeOffset.X + eyeSize,
 				Y: middlePoint.Y - eyeOffset.Y + eyeSize,
 			},
-		}.Op(gtx.Ops),
+		}.Op(madFaceCache),
 	)
 
 	// Right eyebrow
 	rightEyebrowPath := clip.Path{}
-	rightEyebrowPath.Begin(gtx.Ops)
+	rightEyebrowPath.Begin(madFaceCache)
 	rightEyebrowPath.MoveTo(f32.Pt(float32(middlePoint.X+eyeOffset.X+(eyebrowWidth>>1)), float32(middlePoint.Y-eyeOffset.Y-eyebrowOffset)))
 	rightEyebrowPath.Line(f32.Pt(-eyebrowWidth, eyebrowOffset))
 	rightEyebrowPath.Line(f32.Pt(0, -eyebrowSize))
@@ -237,31 +280,40 @@ func drawMadFace(gtx *layout.Context) {
 	rightEyebrowPath.Close()
 
 	paint.FillShape(
-		gtx.Ops,
+		madFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Outline{Path: rightEyebrowPath.End()}.Op(),
 	)
 
 	// Mouth
 	mouthPath := clip.Path{}
-	mouthPath.Begin(gtx.Ops)
+	mouthPath.Begin(madFaceCache)
 	mouthPath.MoveTo(f32.Pt(float32(middlePoint.X-mouthOffset.X), float32(middlePoint.Y+mouthOffset.Y-mouthSize)))
 	mouthPath.QuadTo(f32.Pt(float32(middlePoint.X), float32(middlePoint.Y+mouthOffset.Y-mouthCurve-mouthSize)), f32.Pt(float32(middlePoint.X+mouthOffset.X), float32(middlePoint.Y+mouthOffset.Y-mouthSize)))
 	mouthPath.Line(f32.Pt(0, float32(mouthSize)))
 	mouthPath.QuadTo(f32.Pt(float32(middlePoint.X), float32(middlePoint.Y+mouthOffset.Y-mouthCurve)), f32.Pt(float32(middlePoint.X-mouthOffset.X), float32(middlePoint.Y+mouthOffset.Y)))
 	mouthPath.Close()
 	paint.FillShape(
-		gtx.Ops,
+		madFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Outline{Path: mouthPath.End()}.Op(),
 	)
 
-	macro.Stop().Add(madFaceCache)
+	madFaceCallOp = macro.Stop()
+	madFaceCallOp.Add(gtx.Ops)
 }
 
-var happyFaceCache = new(op.Ops)
+var happyFaceCache *op.Ops
+var happyFaceCallOp op.CallOp
 
 func drawHappyFace(gtx *layout.Context) {
+	if happyFaceCache != nil {
+		happyFaceCallOp.Add(gtx.Ops)
+
+		return
+	}
+
+	happyFaceCache = new(op.Ops)
 	macro := op.Record(happyFaceCache)
 
 	middlePoint := image.Point{X: gtx.Constraints.Max.X >> 1, Y: gtx.Constraints.Max.Y >> 1}
@@ -275,7 +327,7 @@ func drawHappyFace(gtx *layout.Context) {
 
 	// Left eye
 	paint.FillShape(
-		gtx.Ops,
+		happyFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Ellipse{
 			Min: image.Point{
@@ -286,12 +338,12 @@ func drawHappyFace(gtx *layout.Context) {
 				X: middlePoint.X - eyeOffset.X + eyeSize,
 				Y: middlePoint.Y - eyeOffset.Y + eyeSize,
 			},
-		}.Op(gtx.Ops),
+		}.Op(happyFaceCache),
 	)
 
 	// Right eye
 	paint.FillShape(
-		gtx.Ops,
+		happyFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Ellipse{
 			Min: image.Point{
@@ -302,22 +354,23 @@ func drawHappyFace(gtx *layout.Context) {
 				X: middlePoint.X + eyeOffset.X + eyeSize,
 				Y: middlePoint.Y - eyeOffset.Y + eyeSize,
 			},
-		}.Op(gtx.Ops),
+		}.Op(happyFaceCache),
 	)
 
 	// Mouth
 	mouthPath := clip.Path{}
-	mouthPath.Begin(gtx.Ops)
+	mouthPath.Begin(happyFaceCache)
 	mouthPath.MoveTo(f32.Pt(float32(middlePoint.X-mouthOffset.X), float32(middlePoint.Y+mouthOffset.Y-mouthSize)))
 	mouthPath.QuadTo(f32.Pt(float32(middlePoint.X), float32(middlePoint.Y+mouthOffset.Y+mouthCurve-mouthSize)), f32.Pt(float32(middlePoint.X+mouthOffset.X), float32(middlePoint.Y+mouthOffset.Y-mouthSize)))
 	mouthPath.Line(f32.Pt(0, float32(mouthSize)))
 	mouthPath.QuadTo(f32.Pt(float32(middlePoint.X), float32(middlePoint.Y+mouthOffset.Y+mouthCurve)), f32.Pt(float32(middlePoint.X-mouthOffset.X), float32(middlePoint.Y+mouthOffset.Y)))
 	mouthPath.Close()
 	paint.FillShape(
-		gtx.Ops,
+		happyFaceCache,
 		styles.NIGHT_BLACK,
 		clip.Outline{Path: mouthPath.End()}.Op(),
 	)
 
-	macro.Stop().Add(happyFaceCache)
+	happyFaceCallOp = macro.Stop()
+	happyFaceCallOp.Add(gtx.Ops)
 }

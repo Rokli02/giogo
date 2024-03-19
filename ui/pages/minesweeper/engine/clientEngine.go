@@ -176,7 +176,7 @@ func (m *MinesweeperClientEngine) Initialize() {
 	}()
 }
 
-func (m *MinesweeperClientEngine) Resize(width uint16, height uint16, mines uint16) {
+func (m *MinesweeperClientEngine) Resize(width, height, mines uint16) {
 	socketData := models.SocketData{DataType: models.RESIZE}
 
 	socketData.Data = make([]byte, 0, 6)

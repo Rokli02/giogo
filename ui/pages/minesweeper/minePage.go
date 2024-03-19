@@ -51,7 +51,6 @@ type MineField struct {
 	engineCommand       chan engine.EngineCommand
 	returnHomeClickable widget.Clickable
 	refreshRate         time.Duration
-	rerenderEveryFrame  bool
 }
 
 func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], refreshRate time.Duration) *MineField {
@@ -74,10 +73,6 @@ func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycle
 
 func (mf *MineField) SetEngine(minesweeperEngine engine.MinesweeperEngine) *MineField {
 	mf.engine = minesweeperEngine
-
-	if _, ok := minesweeperEngine.(*engine.MinesweeperLocalEngine); !ok {
-		mf.rerenderEveryFrame = true
-	}
 
 	return mf
 }
@@ -109,8 +104,6 @@ func (mf *MineField) Initialize() {
 				mf.w.Invalidate()
 			case engine.RESTART:
 				mf.RestartGui()
-				mf.w.Invalidate()
-			case engine.RERENDER:
 				mf.w.Invalidate()
 			case engine.GO_BACK:
 				mf.router.GoBackTo(routerModule.MinesweeperMenuPage)

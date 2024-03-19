@@ -47,7 +47,7 @@ func NewMinesweeperServerEngine(broadcastToClient func(data models.SocketData)) 
 	return m
 }
 
-func (m *MinesweeperServerEngine) Resize(width uint16, height uint16, mines uint16, isHost bool) {
+func (m *MinesweeperServerEngine) Resize(width, height, mines uint16, isHost bool) {
 	fmt.Printf("Server resize (host=%t)\n", isHost)
 
 	if isHost {
@@ -177,7 +177,9 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 					socketData.Data = append(socketData.Data, utils.ByteConverter.MineElementToBytes(*element)...)
 
 					m.broadcastToClient(socketData)
-					time.Sleep(m.animationDuration)
+					if m.animationDuration != 0 {
+						time.Sleep(m.animationDuration)
+					}
 				}
 
 				m.state = model.RUNNING

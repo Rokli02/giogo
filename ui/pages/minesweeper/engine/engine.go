@@ -11,7 +11,7 @@ import (
 
 type MinesweeperEngine interface {
 	Initialize()
-	Resize(width uint16, height uint16, mines uint16)
+	Resize(width, height, mines uint16)
 	Restart()
 	Close()
 	OnButtonClick(pos image.Point, clickType pointer.Buttons)
@@ -31,7 +31,6 @@ type EngineCommand uint8
 const (
 	RESTART EngineCommand = iota
 	RESIZE
-	RERENDER
 	GO_BACK
 	AFTER_CLICK_WIN
 	AFTER_CLICK_LOSE
@@ -43,8 +42,6 @@ func (c EngineCommand) ToString() string {
 		return "Restart"
 	case RESIZE:
 		return "Resize"
-	case RERENDER:
-		return "Rerender"
 	case GO_BACK:
 		return "Go back"
 	default:
