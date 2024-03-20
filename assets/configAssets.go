@@ -20,8 +20,6 @@ func initializeConfigs(useEmbededAssets bool) {
 	var err error
 
 	if !useEmbededAssets {
-		fmt.Println("Huhhh, gay")
-
 		namesFile, err = os.ReadFile("./assets/configs/names.yaml")
 		if err != nil {
 			fmt.Println("Couldn't read the names file:", err)
