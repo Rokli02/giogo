@@ -72,8 +72,11 @@ func (m *MinesweeperServerEngine) Resize(width, height, mines uint16, isHost boo
 		m.marked = 0
 	}
 
-	socketData := models.SocketData{DataType: models.RESIZE}
-	socketData.Data = make([]byte, 0, 9)
+	socketData := models.SocketData{
+		DataType: models.RESIZE,
+		Data:     make([]byte, 0, 9),
+	}
+
 	socketData.Data = append(socketData.Data, byte(model.START))
 	socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 	socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(width)...)
@@ -94,8 +97,11 @@ func (m *MinesweeperServerEngine) Restart() {
 	m.revealed = 0
 	m.marked = 0
 
-	socketData := models.SocketData{DataType: models.RESTART}
-	socketData.Data = make([]byte, 0, 3)
+	socketData := models.SocketData{
+		DataType: models.RESTART,
+		Data:     make([]byte, 0, 3),
+	}
+
 	socketData.Data = append(socketData.Data, byte(model.START))
 	socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 
@@ -111,8 +117,11 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 
 		m.mines = logic.GenerateMines(pos, m.matrix, m.maxMines)
 
-		socketData := models.SocketData{DataType: models.STATE}
-		socketData.Data = make([]byte, 0, 7)
+		socketData := models.SocketData{
+			DataType: models.STATE,
+			Data:     make([]byte, 0, 7),
+		}
+
 		socketData.Data = append(socketData.Data, byte(model.START))
 		socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.width)...)
 		socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.height)...)
@@ -123,6 +132,10 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 		fallthrough
 	case model.RUNNING:
 		if element.IsHidden() && clickType == pointer.ButtonSecondary {
+			if m.marked >= m.mines && !element.IsMarked() {
+				break
+			}
+
 			element.ToggleProp(model.MarkedBits)
 
 			if element.IsMarked() {
@@ -131,8 +144,11 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 				m.marked--
 			}
 
-			socketData := models.SocketData{DataType: models.POSITION}
-			socketData.Data = make([]byte, 0, 13)
+			socketData := models.SocketData{
+				DataType: models.POSITION,
+				Data:     make([]byte, 0, 13),
+			}
+
 			socketData.Data = append(socketData.Data, byte(model.RUNNING))
 			socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 			socketData.Data = append(socketData.Data, utils.ByteConverter.MineElementToBytes(*element)...)
@@ -146,10 +162,13 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 		case -1:
 			m.state = model.LOSE
 
-			socketData := models.SocketData{DataType: models.END_OF_GAME}
 			remainingMines := m.GetRemainingMines()
 
-			socketData.Data = make([]byte, 0, 3+len(remainingMines)*model.SizeOfMineElementInBytes)
+			socketData := models.SocketData{
+				DataType: models.END_OF_GAME,
+				Data:     make([]byte, 0, 3+len(remainingMines)*model.SizeOfMineElementInBytes),
+			}
+
 			socketData.Data = append(socketData.Data, byte(model.LOSE))
 			socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 
@@ -161,30 +180,54 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 
 			return
 		case 0:
-			m.state = model.LOADING
-
 			revealedCells := logic.RevealedCells(pos, m.matrix)
 			m.revealed += uint16(len(revealedCells))
+
+			if m.animationDuration == 0 {
+				m.state = model.RUNNING
+
+				socketData := models.SocketData{
+					DataType: models.STATE,
+					Data:     make([]byte, 0, 3+len(revealedCells)*model.SizeOfMineElementInBytes),
+				}
+
+				socketData.Data = append(socketData.Data, byte(model.RUNNING))
+				socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
+
+				for _, mine := range revealedCells {
+					socketData.Data = append(socketData.Data, utils.ByteConverter.MineElementToBytes(*m.matrix[mine.Y][mine.X])...)
+				}
+
+				m.broadcastToClient(socketData)
+
+				break
+			}
+
+			m.state = model.LOADING
 
 			go func() {
 				for _, revealedCell := range revealedCells {
 					element := m.matrix[revealedCell.Y][revealedCell.X]
 
-					socketData := models.SocketData{DataType: models.STATE}
-					socketData.Data = make([]byte, 0, 13)
+					socketData := models.SocketData{
+						DataType: models.STATE,
+						Data:     make([]byte, 0, 13),
+					}
+
 					socketData.Data = append(socketData.Data, byte(model.LOADING))
 					socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 					socketData.Data = append(socketData.Data, utils.ByteConverter.MineElementToBytes(*element)...)
 
 					m.broadcastToClient(socketData)
-					if m.animationDuration != 0 {
-						time.Sleep(m.animationDuration)
-					}
+					time.Sleep(m.animationDuration)
 				}
 
 				m.state = model.RUNNING
-				socketData := models.SocketData{DataType: models.STATE}
-				socketData.Data = make([]byte, 0, 3) // 13
+				socketData := models.SocketData{
+					DataType: models.STATE,
+					Data:     make([]byte, 0, 3), // 13
+				}
+
 				socketData.Data = append(socketData.Data, byte(model.RUNNING))
 				socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 
@@ -195,8 +238,11 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 			m.state = model.RUNNING
 			m.revealed++
 
-			socketData := models.SocketData{DataType: models.POSITION}
-			socketData.Data = make([]byte, 0, 13)
+			socketData := models.SocketData{
+				DataType: models.POSITION,
+				Data:     make([]byte, 0, 13),
+			}
+
 			socketData.Data = append(socketData.Data, byte(m.state))
 			socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 			socketData.Data = append(socketData.Data, utils.ByteConverter.MineElementToBytes(*element)...)
@@ -208,11 +254,13 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 			fmt.Println("--- GG, WIN ---")
 			m.state = model.WIN
 			m.marked = m.mines
-
-			data := models.SocketData{DataType: models.END_OF_GAME}
 			remainingMines := m.GetRemainingMines()
 
-			data.Data = make([]byte, 0, 3+len(remainingMines)*model.SizeOfMineElementInBytes)
+			data := models.SocketData{
+				DataType: models.END_OF_GAME,
+				Data:     make([]byte, 0, 3+len(remainingMines)*model.SizeOfMineElementInBytes),
+			}
+
 			data.Data = append(data.Data, byte(model.WIN))
 			data.Data = append(data.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
 

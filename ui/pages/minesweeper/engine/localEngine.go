@@ -95,6 +95,10 @@ func (me *MinesweeperLocalEngine) OnButtonClick(pos image.Point, clickType point
 		fallthrough
 	case model.RUNNING:
 		if element.IsHidden() && clickType == pointer.ButtonSecondary {
+			if me.marked >= me.mines && !element.IsMarked() {
+				break
+			}
+
 			element.ToggleProp(model.MarkedBits)
 
 			if element.IsMarked() {

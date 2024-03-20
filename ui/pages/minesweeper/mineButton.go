@@ -92,12 +92,6 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 		return
 	}
 
-	if mb.Marked {
-		drawMarkedCell(gtx, mb.Size)
-
-		return
-	}
-
 	paint.FillShape(gtx.Ops, borderColor, clip.Stroke{Path: clip.Rect{Max: mb.Size}.Path(), Width: 2}.Op())
 
 	switch mb.Value {
@@ -108,6 +102,12 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 
 		drawMissMarkedCell(gtx, mb.Size)
 	case -1:
+		if mb.Marked {
+			drawMarkedCell(gtx, mb.Size)
+
+			return
+		}
+
 		drawMineCell(gtx, mb.Size)
 	default:
 		if mb.Marked {

@@ -36,6 +36,4 @@ func (s *ServerStatus) FromBytes(b []byte, fromIndex int) {
 	s.CanJoin = utils.ByteConverter.BytesToBool(b, fromIndex)
 	fromIndex += 1
 	s.PlayerNames = utils.ByteConverter.BytesToStringArray(b, fromIndex)
-	// TODO: FIX, ha hibás
-	// FIXME: Talán
 }

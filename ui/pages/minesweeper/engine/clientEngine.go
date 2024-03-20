@@ -112,12 +112,24 @@ func (m *MinesweeperClientEngine) Initialize() {
 					}
 
 					m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
-					element := utils.ByteConverter.BytesToMineElement(socketData.Data, 3)
 
-					m.mineChannel <- element
-					<-m.acks
+					for i := 3; i < len(socketData.Data); i += model.SizeOfMineElementInBytes {
+						element := utils.ByteConverter.BytesToMineElement(socketData.Data, i)
+
+						m.mineChannel <- element
+						<-m.acks
+					}
 				case model.RUNNING:
 					m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
+
+					for i := 3; i < len(socketData.Data); i += model.SizeOfMineElementInBytes {
+						element := utils.ByteConverter.BytesToMineElement(socketData.Data, i)
+
+						m.mineChannel <- element
+						<-m.acks
+					}
+
+					m.w.Invalidate()
 				case model.LOSE:
 					fallthrough
 				case model.WIN:
@@ -177,9 +189,11 @@ func (m *MinesweeperClientEngine) Initialize() {
 }
 
 func (m *MinesweeperClientEngine) Resize(width, height, mines uint16) {
-	socketData := models.SocketData{DataType: models.RESIZE}
+	socketData := models.SocketData{
+		DataType: models.RESIZE,
+		Data:     make([]byte, 0, 6),
+	}
 
-	socketData.Data = make([]byte, 0, 6)
 	socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(width)...)
 	socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(height)...)
 	socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(mines)...)
@@ -205,9 +219,11 @@ func (m *MinesweeperClientEngine) Close() {
 }
 
 func (m *MinesweeperClientEngine) OnButtonClick(pos image.Point, clickType pointer.Buttons) {
-	socketData := models.SocketData{DataType: models.POSITION}
+	socketData := models.SocketData{
+		DataType: models.POSITION,
+		Data:     make([]byte, 0, 9),
+	}
 
-	socketData.Data = make([]byte, 0, 9)
 	socketData.Data = append(socketData.Data, byte(clickType))
 	socketData.Data = append(socketData.Data, utils.ByteConverter.PointToBytes(pos)...)
 

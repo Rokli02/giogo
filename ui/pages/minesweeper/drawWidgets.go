@@ -34,13 +34,16 @@ func drawMarkedCell(gtx *layout.Context, size image.Point) {
 	localGtx.Constraints.Max.X = localGtx.Constraints.Max.X - (int(shadowThicknes) << 1)
 	localGtx.Constraints.Max.Y = localGtx.Constraints.Max.Y - (int(shadowThicknes) << 1)
 
-	op.Offset(image.Point{X: int(shadowThicknes), Y: int(shadowThicknes)}).Add(markedCellOps)
+	offset := op.Offset(image.Point{X: int(shadowThicknes), Y: int(shadowThicknes)}).Push(markedCellOps)
 
 	markedField := assets.GetWidgetImage("marked", size.X)
 	markedField.Position = layout.Center
 	markedField.Layout(localGtx)
 
 	localGtx.Constraints = tmpGtx
+
+	offset.Pop()
+
 	markedCellOpsCall = macro.Stop()
 	markedCellOpsCall.Add(gtx.Ops)
 }

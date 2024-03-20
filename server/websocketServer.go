@@ -294,7 +294,7 @@ func (ms *MinesweeperServer) handleClientActions() {
 		}
 
 		fmt.Printf("Server received socketData with type (%s), data length in bytes (%d)\n", data.DataType.ToString(), len(data.Data))
-		fmt.Println("\tData content", data.Data)
+		// fmt.Println("\tData content", data.Data)
 
 		switch data.DataType {
 		case models.TEXT:
@@ -378,7 +378,7 @@ func (ms *MinesweeperServer) removeConnection(connection *websocket.Conn) {
 
 func (ms *MinesweeperServer) broadcastToClient(data models.SocketData) {
 	fmt.Printf("Broadcast %s type data with (%d byte long) to %d clients\n", data.DataType.ToString(), len(data.Data), len(ms.clients))
-	fmt.Println("\tData content:", data.Data)
+	// fmt.Println("\tData content:", data.Data)
 	for _, client := range ms.clients {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
 
