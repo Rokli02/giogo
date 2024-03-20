@@ -70,7 +70,7 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 	paint.ColorOp{Color: baseColor}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	if (state == model.WIN && mb.Value == -1) || mb.Marked {
+	if state == model.WIN && mb.Value == -1 {
 		drawMarkedCell(gtx, mb.Size)
 
 		return
@@ -81,10 +81,23 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 			mb.registerEvents(gtx.Ops)
 		}
 
+		if mb.Marked {
+			drawMarkedCell(gtx, mb.Size)
+
+			return
+		}
+
 		drawHiddenCell(gtx, mb.Size)
 
 		return
 	}
+
+	if mb.Marked {
+		drawMarkedCell(gtx, mb.Size)
+
+		return
+	}
+
 	paint.FillShape(gtx.Ops, borderColor, clip.Stroke{Path: clip.Rect{Max: mb.Size}.Path(), Width: 2}.Op())
 
 	switch mb.Value {
