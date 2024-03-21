@@ -31,7 +31,7 @@ type MinesweeperClientEngine struct {
 	serverToClient chan models.SocketData
 	engineCommand  chan EngineCommand
 	mines          uint16
-	elementList    []*model.MineElement
+	elementList    []model.MineElement
 }
 
 // Interface implementation check
@@ -56,6 +56,7 @@ func NewMinesweeperClientEngine(w *app.Window, host string, port uint) *Mineswee
 func (m *MinesweeperClientEngine) Initialize() {
 	m.serverToClient = make(chan models.SocketData)
 	m.Client.Join()
+	m.elementList = make([]model.MineElement, 0)
 
 	go func() {
 		for {
@@ -141,13 +142,10 @@ func (m *MinesweeperClientEngine) Initialize() {
 				m.state = model.MinesweeperState(socketData.Data[0])
 				m.marked = utils.ByteConverter.BytesToUint16(socketData.Data, 1)
 
-				clear(m.elementList)
-				m.elementList = make([]*model.MineElement, 0)
-
 				for i := 3; i < len(socketData.Data); i += model.SizeOfMineElementInBytes {
 					element := utils.ByteConverter.BytesToMineElement(socketData.Data, i)
 
-					m.elementList = append(m.elementList, &element)
+					m.elementList = append(m.elementList, element)
 				}
 
 				if m.state == model.WIN {
@@ -227,22 +225,15 @@ func (m *MinesweeperClientEngine) OnButtonClick(pos image.Point, clickType point
 	socketData.Data = append(socketData.Data, byte(clickType))
 	socketData.Data = append(socketData.Data, utils.ByteConverter.PointToBytes(pos)...)
 
-	fmt.Println("Client Button click pos:", pos, " | data:", socketData.Data)
-
 	m.Client.WriteData(socketData.ToBytes())
 }
 
-func (m *MinesweeperClientEngine) GetRemainingMines() []*model.MineElement {
-	elementListCopy := make([]*model.MineElement, 0, len(m.elementList))
+func (m *MinesweeperClientEngine) GetRemainingMines() []model.MineElement {
+	elementListCopy := make([]model.MineElement, 0, len(m.elementList))
 
-	for _, element := range m.elementList {
-		elementCopy := *element
+	elementListCopy = append(elementListCopy, m.elementList...)
 
-		elementListCopy = append(elementListCopy, &elementCopy)
-	}
-
-	m.elementList = nil
-	m.elementList = make([]*model.MineElement, 0)
+	m.elementList = m.elementList[:0]
 
 	return elementListCopy
 }

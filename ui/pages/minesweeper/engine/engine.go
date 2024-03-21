@@ -15,7 +15,7 @@ type MinesweeperEngine interface {
 	Restart()
 	Close()
 	OnButtonClick(pos image.Point, clickType pointer.Buttons)
-	GetRemainingMines() []*model.MineElement
+	GetRemainingMines() []model.MineElement
 	SetChannels(mainChannel chan model.MineElement, acks chan uint8, engineCommand chan EngineCommand) MinesweeperEngine
 	SetAnimationDuration(animationDuration time.Duration) MinesweeperEngine
 	GetWidth() int

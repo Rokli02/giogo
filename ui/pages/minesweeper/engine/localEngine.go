@@ -211,15 +211,15 @@ func (me *MinesweeperLocalEngine) GetMines() uint16 {
 	return me.mines
 }
 
-func (me *MinesweeperLocalEngine) GetRemainingMines() []*model.MineElement {
-	matrix := make([]*model.MineElement, 0, (me.height*me.width)>>2)
+func (me *MinesweeperLocalEngine) GetRemainingMines() []model.MineElement {
+	matrix := make([]model.MineElement, 0, (me.height*me.width)>>2)
 
 	for rowIndex := range me.matrix {
 		for colIndex := range me.matrix[rowIndex] {
 			if me.matrix[rowIndex][colIndex].IsHidden() {
 				me.matrix[rowIndex][colIndex].PropOff(model.HiddenBits)
 
-				matrix = append(matrix, me.matrix[rowIndex][colIndex])
+				matrix = append(matrix, *me.matrix[rowIndex][colIndex])
 			}
 		}
 	}

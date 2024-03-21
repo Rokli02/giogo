@@ -81,7 +81,7 @@ func run(w *app.Window) error {
 }
 
 func addRoutes(router *routerModule.Router[ui.ApplicationCycles, string], w *app.Window) {
-	singlePlayerMinesweeperEngine := engine.NewMinesweeperLocalEngine().SetAnimationDuration(time.Millisecond * 40)
+	singlePlayerMinesweeperEngine := engine.NewMinesweeperLocalEngine().SetAnimationDuration(time.Millisecond * 20)
 	singlePlayerMinesweeperEngine.Resize(cli.Width, cli.Height, cli.Mines)
 
 	router.Add(routerModule.MenuPage, menu.NewMenu(w, router))
