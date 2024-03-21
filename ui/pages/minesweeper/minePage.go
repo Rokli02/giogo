@@ -43,25 +43,33 @@ type MineField struct {
 	BtnSize   image.Point
 	BtnMatrix [][]MineButton
 
-	engine              engine.MinesweeperEngine
-	w                   *app.Window
-	router              *routerModule.Router[ui.ApplicationCycles, string]
-	mineChannel         chan model.MineElement
-	acks                chan uint8
-	engineCommand       chan engine.EngineCommand
+	engine        engine.MinesweeperEngine
+	w             *app.Window
+	router        *routerModule.Router[ui.ApplicationCycles, string]
+	mineChannel   chan model.MineElement
+	acks          chan uint8
+	engineCommand chan engine.EngineCommand
+	refreshRate   time.Duration
+
+	rowCache            []model.LayoutCache
+	modifiedRows        []uint8
 	returnHomeClickable widget.Clickable
-	refreshRate         time.Duration
+	rowList             layout.List
+	colList             layout.List
 }
 
 func NewMinefield(w *app.Window, router *routerModule.Router[ui.ApplicationCycles, string], refreshRate time.Duration) *MineField {
 	mineField := &MineField{
 		BtnSize: image.Pt(24, 24),
 
-		engine:              nil,
-		w:                   w,
-		router:              router,
-		refreshRate:         refreshRate,
+		engine:      nil,
+		w:           w,
+		router:      router,
+		refreshRate: refreshRate,
+
 		returnHomeClickable: widget.Clickable{},
+		rowList:             layout.List{Axis: layout.Vertical, Alignment: layout.Start},
+		colList:             layout.List{Axis: layout.Horizontal, Alignment: layout.Start},
 	}
 
 	return mineField
@@ -101,18 +109,20 @@ func (mf *MineField) Initialize() {
 			switch command {
 			case engine.RESIZE:
 				mf.ResizeGui()
-				mf.w.Invalidate()
 			case engine.RESTART:
 				mf.RestartGui()
-				mf.w.Invalidate()
 			case engine.GO_BACK:
-				mf.router.GoBackTo(routerModule.MinesweeperMenuPage)
+				res := mf.router.GoBackTo(routerModule.MinesweeperMenuPage)
+				if res == nil {
+					return
+				}
 			case engine.AFTER_CLICK_LOSE:
 				fallthrough
 			case engine.AFTER_CLICK_WIN:
 				remainingMines := mf.engine.GetRemainingMines()
 
 				for _, mine := range remainingMines {
+					mf.modifiedRows[mine.Pos.Y] = 1
 					btn := &mf.BtnMatrix[mine.Pos.Y][mine.Pos.X]
 
 					btn.Value = mine.Value
@@ -142,6 +152,7 @@ func (mf *MineField) Initialize() {
 				return
 			}
 
+			mf.modifiedRows[message.Pos.Y] = 1
 			btn := &mf.BtnMatrix[message.Pos.Y][message.Pos.X]
 
 			btn.Value = message.Value
@@ -166,6 +177,8 @@ func (mf *MineField) Restart() {
 
 func (mf *MineField) RestartGui() {
 	for rowIndex := range mf.BtnMatrix {
+		mf.modifiedRows[rowIndex] = 1
+
 		for colIndex := range mf.BtnMatrix[rowIndex] {
 			btn := &mf.BtnMatrix[rowIndex][colIndex]
 
@@ -174,13 +187,19 @@ func (mf *MineField) RestartGui() {
 			btn.Marked = false
 		}
 	}
+
+	mf.w.Invalidate()
 }
 
 func (mf *MineField) ResizeGui() {
 	mf.BtnMatrix = make([][]MineButton, mf.engine.GetHeight())
+	mf.modifiedRows = make([]uint8, mf.engine.GetHeight())
+	mf.rowCache = make([]model.LayoutCache, mf.engine.GetHeight())
 
 	for rowIndex := range mf.BtnMatrix {
 		mf.BtnMatrix[rowIndex] = make([]MineButton, mf.engine.GetWidth())
+		mf.modifiedRows[rowIndex] = 1
+		mf.rowCache[rowIndex] = model.LayoutCache{Macro: nil, Ops: new(op.Ops)}
 
 		for colIndex := range mf.BtnMatrix[rowIndex] {
 			btn := &mf.BtnMatrix[rowIndex][colIndex]
@@ -200,6 +219,8 @@ func (mf *MineField) ResizeGui() {
 		c.MaxSize = sizeOfMinesweeper
 		c.Size = sizeOfMinesweeper
 	})
+
+	mf.w.Invalidate()
 }
 
 func (mf *MineField) Close() {
@@ -370,64 +391,70 @@ func (mf *MineField) headerComponent(gtx layout.Context) layout.Dimensions {
 func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
 	return layout.Stack{}.Layout(gtx,
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			rowList := &layout.List{Axis: layout.Vertical, Alignment: layout.Start}
+			return mf.rowList.Layout(gtx, len(mf.BtnMatrix), func(gtx layout.Context, rowIndex int) layout.Dimensions {
+				if mf.rowCache[rowIndex].Macro == nil || mf.modifiedRows[rowIndex] != 0 {
+					mf.modifiedRows[rowIndex] = 0
 
-			return rowList.Layout(gtx, len(mf.BtnMatrix), func(gtx layout.Context, rowIndex int) layout.Dimensions {
-				list := &layout.List{Axis: layout.Horizontal, Alignment: layout.Start}
+					record := op.Record(mf.rowCache[rowIndex].Ops)
 
-				return list.Layout(gtx, len(mf.BtnMatrix[rowIndex]), func(gtx layout.Context, colIndex int) layout.Dimensions {
-					btnDimension := mf.BtnMatrix[rowIndex][colIndex].Layout(gtx, mf.engine.GetState())
+					tempGtx := gtx
+					tempGtx.Ops = mf.rowCache[rowIndex].Ops
 
-					return btnDimension
-				})
+					mf.rowCache[rowIndex].Dimensions = mf.colList.Layout(tempGtx, len(mf.BtnMatrix[rowIndex]), func(gtx layout.Context, colIndex int) layout.Dimensions {
+						return mf.BtnMatrix[rowIndex][colIndex].Layout(gtx, mf.engine.GetState())
+					})
+
+					macro := record.Stop()
+					mf.rowCache[rowIndex].Macro = &macro
+				}
+
+				// TODO: Singleplayer-ben, valamiért csak az első 15 mezőt jeleníti meg
+				mf.rowCache[rowIndex].Macro.Add(gtx.Ops)
+				mf.handleClickInRow(rowIndex, &gtx) // mf.rowCache[rowIndex].Ops
+				return mf.rowCache[rowIndex].Dimensions
 			})
 		}),
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-			isGameEnded := false
 			var txt string
 
 			switch mf.engine.GetState() {
 			case model.WIN:
-				isGameEnded = true
 				txt = "GG EZ"
 			case model.LOSE:
-				isGameEnded = true
 				txt = "Na majd holnap"
+			default:
+				return layout.Dimensions{}
 			}
 
-			if isGameEnded {
-				defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
-				paint.Fill(gtx.Ops, game_end_cover_shadow)
-				tempGtxConstraints := gtx.Constraints
-				gtx.Constraints.Min.Y = 0
+			defer clip.Rect{Max: gtx.Constraints.Min}.Push(gtx.Ops).Pop()
+			paint.Fill(gtx.Ops, game_end_cover_shadow)
+			tempGtxConstraints := gtx.Constraints
+			gtx.Constraints.Min.Y = 0
 
-				// Szöveg
-				rec := op.Record(gtx.Ops)
-				lbl := material.Label(styles.MaterialTheme, unit.Sp(20), txt)
-				lbl.Alignment = text.Middle
-				lbl.Font.Weight = font.Medium
-				lblDim := lbl.Layout(gtx)
-				macro := rec.Stop()
+			// Szöveg
+			rec := op.Record(gtx.Ops)
+			lbl := material.Label(styles.MaterialTheme, unit.Sp(20), txt)
+			lbl.Alignment = text.Middle
+			lbl.Font.Weight = font.Medium
+			lblDim := lbl.Layout(gtx)
+			macro := rec.Stop()
 
-				op.Offset(image.Point{
-					0,
-					((gtx.Constraints.Max.Y - lblDim.Size.Y) >> 1) - game_end_txt_padding - heightOfHeader,
-				}).Add(gtx.Ops)
+			op.Offset(image.Point{
+				0,
+				((gtx.Constraints.Max.Y - lblDim.Size.Y) >> 1) - game_end_txt_padding - heightOfHeader,
+			}).Add(gtx.Ops)
 
-				txtCoverHighlighter(&gtx, &lblDim)
+			txtCoverHighlighter(&gtx, &lblDim)
 
-				op.Offset(image.Point{
-					0,
-					game_end_txt_padding,
-				}).Add(gtx.Ops)
+			op.Offset(image.Point{
+				0,
+				game_end_txt_padding,
+			}).Add(gtx.Ops)
 
-				macro.Add(gtx.Ops)
+			macro.Add(gtx.Ops)
 
-				gtx.Constraints = tempGtxConstraints
-				return layout.Dimensions{Size: gtx.Constraints.Min}
-			}
-
-			return layout.Dimensions{}
+			gtx.Constraints = tempGtxConstraints
+			return layout.Dimensions{Size: gtx.Constraints.Min}
 		}),
 	)
 }
@@ -462,4 +489,30 @@ func txtCoverHighlighter(gtx *layout.Context, lblDim *layout.Dimensions) {
 
 	hcPop.Pop()
 	highlightOffset.Pop()
+}
+
+func (mf *MineField) handleClickInRow(rowIndex int, gtx *layout.Context) {
+	defer clip.Rect{Max: mf.rowCache[rowIndex].Dimensions.Size}.Push(gtx.Ops).Pop()
+	if mf.engine.GetState() == model.START || mf.engine.GetState() == model.RUNNING {
+		pointer.InputOp{
+			Tag:   mf.rowCache[rowIndex].Macro,
+			Kinds: pointer.Press,
+		}.Add(gtx.Ops)
+	}
+
+	for _, event := range gtx.Events(mf.rowCache[rowIndex].Macro) {
+		switch event := event.(type) {
+		case pointer.Event:
+			switch event.Kind {
+			case pointer.Press:
+				btnPos := image.Point{X: int(event.Position.X) / mf.BtnSize.X, Y: rowIndex}
+
+				if mf.BtnMatrix[btnPos.Y][btnPos.X].Hidden {
+					mf.engine.OnButtonClick(btnPos, event.Buttons)
+
+					op.InvalidateOp{}.Add(gtx.Ops)
+				}
+			}
+		}
+	}
 }

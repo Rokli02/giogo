@@ -36,9 +36,9 @@ type MinesweeperCreateLobbyMenu struct {
 	usernameLbl       material.LabelStyle
 
 	playerLimitInput *component.Input
-	gameWidthInput   *component.Input
-	gameHeigthInput  *component.Input
-	gameMinesInput   *component.Input
+	gameWidthInput   *component.Input // suggested upper limit: 80
+	gameHeigthInput  *component.Input // suggested upper limit: 40
+	gameMinesInput   *component.Input // upper limit: based on the game size
 }
 
 var _ ui.ApplicationCycles = (*MinesweeperCreateLobbyMenu)(nil)

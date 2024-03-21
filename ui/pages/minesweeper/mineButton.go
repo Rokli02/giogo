@@ -42,18 +42,6 @@ type MineButton struct {
 }
 
 func (mb *MineButton) Layout(gtx layout.Context, state model.MinesweeperState) layout.Dimensions {
-	for _, event := range gtx.Events(mb) {
-		switch event := event.(type) {
-		case pointer.Event:
-			switch event.Kind {
-			case pointer.Press:
-				mb.pressEvent(&event)
-			case pointer.Release:
-				mb.releaseEvent(&event, gtx.Ops)
-			}
-		}
-	}
-
 	gtx.Constraints.Max = mb.Size
 
 	mb.layout(&gtx, state)
@@ -77,10 +65,6 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 	}
 
 	if mb.Hidden {
-		if state == model.START || state == model.RUNNING {
-			mb.registerEvents(gtx.Ops)
-		}
-
 		if mb.Marked {
 			drawMarkedCell(gtx, mb.Size)
 
@@ -134,37 +118,6 @@ func (mb *MineButton) layout(gtx *layout.Context, state model.MinesweeperState) 
 		textContent.Layout(*gtx)
 		textOffsetStack.Pop()
 	}
-}
-
-func (mb *MineButton) registerEvents(ops *op.Ops) {
-	pointer.InputOp{
-		Tag:   mb,
-		Kinds: pointer.Press | pointer.Release,
-	}.Add(ops)
-}
-
-func (mb *MineButton) pressEvent(event *pointer.Event) {
-	mb.pid = event.PointerID
-	mb.clickType = event.Buttons
-}
-
-func (mb *MineButton) releaseEvent(event *pointer.Event, ops *op.Ops) {
-	if mb.pid != event.PointerID {
-		mb.pid = 0
-		mb.clickType = 0
-
-		return
-	}
-
-	if mb.Marked && mb.clickType != pointer.ButtonSecondary {
-		return
-	}
-
-	mb.onClick(mb.Pos, mb.clickType)
-
-	op.InvalidateOp{}.Add(ops)
-	mb.pid = 0
-	mb.clickType = 0
 }
 
 func (mb *MineButton) getColorOfValue() color.NRGBA {

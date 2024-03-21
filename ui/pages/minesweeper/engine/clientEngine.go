@@ -91,7 +91,7 @@ func (m *MinesweeperClientEngine) Initialize() {
 		fmt.Println("Starting listeing to server responses...")
 
 		for socketData := range m.serverToClient {
-			// fmt.Printf("Client received socketData with type (%s), data length in bytes (%d)\n", socketData.DataType.ToString(), len(socketData.Data))
+			fmt.Printf("Client received socketData with type (%s), data length in bytes (%d)\n", socketData.DataType.ToString(), len(socketData.Data))
 			// fmt.Println("\tData content", socketData.Data)
 
 			switch socketData.DataType {

@@ -164,19 +164,12 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 
 			remainingMines := m.GetRemainingMines()
 
-			socketData := models.SocketData{
-				DataType: models.END_OF_GAME,
-				Data:     make([]byte, 0, 3+len(remainingMines)*model.SizeOfMineElementInBytes),
-			}
-
-			socketData.Data = append(socketData.Data, byte(model.LOSE))
-			socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
-
+			var dataMines []byte = make([]byte, 0, len(remainingMines)*model.SizeOfMineElementInBytes)
 			for _, mine := range remainingMines {
-				socketData.Data = append(socketData.Data, utils.ByteConverter.MineElementToBytes(*mine)...)
+				dataMines = append(dataMines, utils.ByteConverter.MineElementToBytes(*mine)...)
 			}
 
-			m.broadcastToClient(socketData)
+			sendDismemberedData(dataMines, models.END_OF_GAME, model.LOSE, m.marked, m.broadcastToClient)
 
 			return
 		case 0:
@@ -186,19 +179,12 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 			if m.animationDuration == 0 {
 				m.state = model.RUNNING
 
-				socketData := models.SocketData{
-					DataType: models.STATE,
-					Data:     make([]byte, 0, 3+len(revealedCells)*model.SizeOfMineElementInBytes),
-				}
-
-				socketData.Data = append(socketData.Data, byte(model.RUNNING))
-				socketData.Data = append(socketData.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
-
+				var dataMines []byte = make([]byte, 0, len(revealedCells)*model.SizeOfMineElementInBytes)
 				for _, mine := range revealedCells {
-					socketData.Data = append(socketData.Data, utils.ByteConverter.MineElementToBytes(*m.matrix[mine.Y][mine.X])...)
+					dataMines = append(dataMines, utils.ByteConverter.MineElementToBytes(*m.matrix[mine.Y][mine.X])...)
 				}
 
-				m.broadcastToClient(socketData)
+				sendDismemberedData(dataMines, models.STATE, model.RUNNING, m.marked, m.broadcastToClient)
 
 				break
 			}
@@ -256,19 +242,12 @@ func (m *MinesweeperServerEngine) OnPositionAction(pos image.Point, clickType po
 			m.marked = m.mines
 			remainingMines := m.GetRemainingMines()
 
-			data := models.SocketData{
-				DataType: models.END_OF_GAME,
-				Data:     make([]byte, 0, 3+len(remainingMines)*model.SizeOfMineElementInBytes),
-			}
-
-			data.Data = append(data.Data, byte(model.WIN))
-			data.Data = append(data.Data, utils.ByteConverter.Uint16ToBytes(m.marked)...)
-
+			var dataMines []byte = make([]byte, 0, len(remainingMines)*model.SizeOfMineElementInBytes)
 			for _, mine := range remainingMines {
-				data.Data = append(data.Data, utils.ByteConverter.MineElementToBytes(*mine)...)
+				dataMines = append(dataMines, utils.ByteConverter.MineElementToBytes(*mine)...)
 			}
 
-			m.broadcastToClient(data)
+			sendDismemberedData(dataMines, models.END_OF_GAME, model.WIN, m.marked, m.broadcastToClient)
 
 			return
 		}
@@ -295,4 +274,25 @@ func (m *MinesweeperServerEngine) SetAnimationDuration(animationDuration time.Du
 	m.animationDuration = animationDuration
 
 	return m
+}
+
+func sendDismemberedData(dataMines []byte, dataType models.DataType, gameState model.MinesweeperState, marked uint16, broadcastToClient func(data models.SocketData)) {
+	socketData := models.SocketData{
+		DataType: dataType,
+		Data:     make([]byte, 0, 3+min(len(dataMines), max_size_of_mines_in_data)),
+	}
+
+	dataState := byte(gameState)
+	dataMarked := utils.ByteConverter.Uint16ToBytes(marked)
+
+	for i := 0; i < len(dataMines); i += max_size_of_mines_in_data {
+		to := min(i+max_size_of_mines_in_data, len(dataMines))
+		socketData.Data = socketData.Data[:0]
+
+		socketData.Data = append(socketData.Data, dataState)
+		socketData.Data = append(socketData.Data, dataMarked...)
+		socketData.Data = append(socketData.Data, dataMines[i:to]...)
+
+		broadcastToClient(socketData)
+	}
 }

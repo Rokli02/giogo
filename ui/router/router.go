@@ -93,6 +93,8 @@ func (r *Router[Route, Key]) GoBack() (e error) {
 
 func (r *Router[Route, Key]) GoBackTo(key Key) (e error) {
 	if len(r.previousKeys) == 0 {
+		e = errors.New("can't go back, it's too late")
+
 		return
 	}
 

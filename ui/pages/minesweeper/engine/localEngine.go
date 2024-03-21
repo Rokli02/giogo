@@ -53,12 +53,11 @@ func (me *MinesweeperLocalEngine) Resize(width, height, mines uint16) {
 		}
 	}
 
+	me.mines = mines
 	me.maxMines = mines
 	me.state = model.START
 	me.revealed = 0
 	me.marked = 0
-
-	me.mines = mines
 }
 
 func (me *MinesweeperLocalEngine) Initialize() {
