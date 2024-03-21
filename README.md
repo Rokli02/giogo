@@ -13,7 +13,7 @@
   A _Go_ nyelvből adódóan lehetőség van ".exe" fájl létrehozása nélkül futtatni az következő paranccsal, ha a "giogo" mappában vagyunk:
   </br>```go run .```</br>
   Viszont lehetőségünk van egy ".exe" fájl létrehozására is, a következő paranccsal
-  </br>```go build -ldflags="-H windowsgui" -o MineGO.exe```</br>
+  </br>```go build -ldflags="-H windowsgui -s -w" -o MineGO.exe```</br>
 
 ### Paraméterek
   Lehetőség van induláskor paraméterek megadására, amivel tudjuk állítani milyen __nehézségü__ legyen a játék,

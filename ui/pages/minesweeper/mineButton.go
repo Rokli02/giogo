@@ -8,7 +8,6 @@ import (
 	"image/color"
 
 	"gioui.org/font"
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -30,15 +29,10 @@ const (
 
 type MineButton struct {
 	Size image.Point
-	Pos  image.Point
 
 	Value  int8
 	Hidden bool
 	Marked bool
-
-	onClick   func(Pos image.Point, clickType pointer.Buttons)
-	pid       pointer.ID
-	clickType pointer.Buttons
 }
 
 func (mb *MineButton) Layout(gtx layout.Context, state model.MinesweeperState) layout.Dimensions {

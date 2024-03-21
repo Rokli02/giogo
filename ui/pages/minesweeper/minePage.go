@@ -90,8 +90,6 @@ func (mf *MineField) Initialize() {
 		panic("Engine is not set for Minesweeper")
 	}
 
-	mf.engine.Initialize()
-
 	mf.w.Option(func(_ unit.Metric, c *app.Config) {
 		c.Title = "Minesweeper COPY"
 		c.Decorated = true
@@ -99,7 +97,6 @@ func (mf *MineField) Initialize() {
 
 	mf.mineChannel = make(chan model.MineElement, 4)
 	mf.acks = make(chan uint8)
-
 	mf.engineCommand = make(chan engine.EngineCommand)
 
 	go func() {
@@ -164,6 +161,7 @@ func (mf *MineField) Initialize() {
 	}()
 
 	mf.engine.SetChannels(mf.mineChannel, mf.acks, mf.engineCommand)
+	mf.engine.Initialize()
 	mf.ResizeGui()
 }
 
@@ -207,8 +205,6 @@ func (mf *MineField) ResizeGui() {
 			btn.Value = 0
 			btn.Hidden = true
 			btn.Marked = false
-			btn.onClick = mf.engine.OnButtonClick
-			btn.Pos = image.Point{colIndex, rowIndex}
 			btn.Size = mf.BtnSize
 		}
 	}
@@ -259,12 +255,11 @@ func (mf *MineField) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	return layout.N.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		gtx.Constraints.Max.X = mf.BtnSize.X * mf.engine.GetWidth()
 		flexD := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(mf.headerComponent),
 			layout.Rigid(mf.bodyComponent),
 		)
-
-		flexD.Size.X = mf.BtnSize.X * mf.engine.GetWidth()
 
 		return flexD
 	})
@@ -408,9 +403,8 @@ func (mf *MineField) bodyComponent(gtx layout.Context) layout.Dimensions {
 					mf.rowCache[rowIndex].Macro = &macro
 				}
 
-				// TODO: Singleplayer-ben, valamiért csak az első 15 mezőt jeleníti meg
 				mf.rowCache[rowIndex].Macro.Add(gtx.Ops)
-				mf.handleClickInRow(rowIndex, &gtx) // mf.rowCache[rowIndex].Ops
+				mf.handleClickInRow(rowIndex, &gtx)
 				return mf.rowCache[rowIndex].Dimensions
 			})
 		}),
