@@ -1,6 +1,10 @@
-module github.com/Rokli02/giogo
+module giogo
 
 go 1.21.4
+
+replace (
+        giogo => github.com/Rokli02/giogo v0.0.0
+)
 
 require gioui.org v0.4.1
 
